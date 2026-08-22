@@ -1,9 +1,12 @@
 import type { AlternateView, ProblemDefinition } from '../data/types';
 import type {
+  ExpressionPath,
   GuidedPlan,
+  MathExpression,
   OperandSide,
   ParsedDecomposition,
 } from '../math/types';
+import type { ExpressionTransformFrame } from '../math/expression';
 
 export type Discovery = {
   side: OperandSide;
@@ -17,6 +20,9 @@ export type ProblemResult = {
   hintUsed: boolean;
   discoveries: Discovery[];
   solvedBy: SolveMethod;
+  attemptCount: number;
+  manipulationCount: number;
+  assisted: boolean;
 };
 
 export type GameBase = {
@@ -25,6 +31,9 @@ export type GameBase = {
   problems: readonly ProblemDefinition[];
   stageIndex: number;
   hintsUsed: boolean[];
+  hintCounts: number[];
+  attemptCounts: number[];
+  manipulationCounts: number[];
   discoveries: Discovery[][];
   results: ProblemResult[];
 };
@@ -46,6 +55,23 @@ export type GameState =
       stepIndex: number;
       answers: number[];
       feedback?: string;
+    })
+  | (GameBase & {
+      phase: 'expression';
+      expression: MathExpression;
+      feedback?: string;
+    })
+  | (GameBase & {
+      phase: 'expressionDecomposing';
+      expression: MathExpression;
+      selectedPath: ExpressionPath;
+      inputError?: string;
+    })
+  | (GameBase & {
+      phase: 'expressionTransforming';
+      frames: ExpressionTransformFrame[];
+      frameIndex: number;
+      finalExpression: MathExpression;
     })
   | (GameBase & { phase: 'reflection' })
   | (GameBase & {
@@ -69,6 +95,13 @@ export type GameAction =
   | { type: 'SUBMIT_DIRECT'; answer: number }
   | { type: 'USE_HINT' }
   | { type: 'SUBMIT_GUIDED'; answer: number }
+  | { type: 'SUBMIT_EXPRESSION_ANSWER'; answer: number }
+  | { type: 'OPEN_EXPRESSION_DECOMPOSITION'; path: ExpressionPath }
+  | { type: 'CLOSE_EXPRESSION_DECOMPOSITION' }
+  | { type: 'SUBMIT_EXPRESSION_DECOMPOSITION'; input: string }
+  | { type: 'ADVANCE_EXPRESSION_TRANSFORM' }
+  | { type: 'APPLY_EXPRESSION_SUGGESTION' }
+  | { type: 'ACCEPT_EXPRESSION_RESCUE' }
   | { type: 'JUST_KNEW' }
   | { type: 'CONTINUE_TO_SURF' }
   | { type: 'BEGIN_SURF' }

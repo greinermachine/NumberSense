@@ -36,6 +36,16 @@ describe('parseDecomposition', () => {
     expect(result).toMatchObject({ ok: false, code: 'too-long' });
   });
 
+  it.each(['48 + 0', '48 - 0', '48 * 1', '1 * 48'])(
+    'rejects the recursive no-op %s',
+    (input) => {
+      expect(parseDecomposition(input, 48)).toMatchObject({
+        ok: false,
+        code: 'not-a-decomposition',
+      });
+    },
+  );
+
   it('canonicalizes commutative decompositions', () => {
     expect(canonicalDecompositionKey({ left: 10, operator: '+', right: 9 })).toBe(
       canonicalDecompositionKey({ left: 9, operator: '+', right: 10 }),

@@ -32,6 +32,29 @@
 
 .times { color: var(--color-muted); font-size: 0.62em; font-weight: 400; }
 
+.recursiveExpression {
+  max-width: 100%;
+  flex-wrap: nowrap;
+  gap: clamp(0.25rem, 1vw, 0.65rem);
+  font-size: clamp(2.8rem, 10vw, 6.4rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.recursiveExpression[data-node-count='4'],
+.recursiveExpression[data-node-count='5'] {
+  font-size: clamp(2.5rem, 8vw, 5rem);
+}
+
+.binaryOperator,
+.parenthesis {
+  color: var(--color-muted);
+  font-size: 0.62em;
+  font-weight: 400;
+}
+
+.expressionNumber { min-width: 1.2em; }
+
 .operand {
   position: relative;
   min-width: 1.55em;
@@ -68,6 +91,7 @@
 
 .operand:focus-visible .plus,
 .operand[data-selected='true'] .plus { opacity: 1; transform: translateY(0); }
+.operand[data-prominent='true'] .plus { opacity: 0.62; transform: translateY(0); }
 
 .decomposition {
   width: min(100%, 24rem);
@@ -138,6 +162,48 @@
 .activeStep input { width: 100%; padding: 0.35rem; font-size: 1.35rem; }
 .activeStep[data-error='true'] input { border-color: var(--color-feedback); animation: nudge 180ms var(--ease-out); }
 
+.transformArea {
+  width: min(100%, 42rem);
+  display: grid;
+  justify-items: center;
+}
+
+.transformAnnotation {
+  min-height: 1.4rem;
+  margin: var(--space-5) 0 var(--space-3);
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+}
+
+.transformExpression {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.22em;
+  font-family: var(--font-display);
+  font-size: clamp(2.3rem, 8vw, 5rem);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+  animation: expression-settle var(--motion-normal) var(--ease-out);
+}
+
+.transformExpression span[data-sign='true'] {
+  color: var(--color-accent-strong);
+  animation: sign-settle 520ms var(--ease-out);
+}
+
+.transformContinue {
+  margin-top: var(--space-6);
+  padding: 0.72rem 1.15rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
 .direct { width: min(100%, 14rem); margin-top: var(--space-7); }
 .direct label { display: block; color: var(--color-muted); font-size: var(--font-size-xs); }
 .answerLine { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--space-3); margin-top: var(--space-2); }
@@ -148,6 +214,16 @@
 .hintArea { min-height: 3.25rem; margin-top: var(--space-5); }
 .hintButton { padding: var(--space-2); border: 0; background: transparent; color: var(--color-muted); font-size: var(--font-size-xs); text-decoration: underline; text-underline-offset: 0.25rem; cursor: pointer; }
 .hintText { max-width: 24rem; margin: var(--space-2) auto 0; color: var(--color-muted); font-family: var(--font-display); font-style: italic; font-size: var(--font-size-sm); }
+.expressionHint { display: grid; justify-items: center; gap: var(--space-2); }
+.hintAction {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
 
 .reflection { margin-top: var(--space-7); }
 .settled { margin: 0 0 var(--space-5); color: var(--color-success); font-family: var(--font-display); font-size: var(--font-size-lg); }
@@ -168,10 +244,16 @@
 }
 
 @keyframes nudge { 0%, 100% { transform: translateX(0); } 35% { transform: translateX(-0.22rem); } 70% { transform: translateX(0.18rem); } }
+@keyframes expression-settle { from { opacity: 0; transform: translateY(0.35rem); } }
+@keyframes sign-settle { 0% { opacity: 0.25; transform: translateY(-0.16em); } 100% { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 38rem) {
   .stage { min-height: calc(100svh - 8rem); padding: var(--space-5) 0; }
   .expression { font-size: clamp(3.1rem, 18vw, 5.4rem); }
+  .recursiveExpression { font-size: clamp(2.4rem, 13vw, 4.6rem); }
+  .recursiveExpression[data-node-count='3'] { font-size: clamp(2.15rem, 10vw, 4rem); }
+  .recursiveExpression[data-node-count='4'],
+  .recursiveExpression[data-node-count='5'] { font-size: clamp(1.7rem, 8vw, 3.5rem); }
   .guided { margin-top: var(--space-5); }
   .completedStep, .activeStep { grid-template-columns: minmax(0, 1fr) 7rem 2.4rem; gap: var(--space-2); font-size: var(--font-size-sm); }
 }
@@ -179,4 +261,5 @@
 @media (prefers-reduced-motion: reduce) {
   .decomposition { transform: none; }
   .activeStep[data-error='true'] input, .direct[data-error='true'] input { animation: none; border-width: 2px; }
+  .transformExpression, .transformExpression span[data-sign='true'] { animation: none; }
 }

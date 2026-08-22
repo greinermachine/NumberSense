@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createInitialGameState, gameReducer } from '../../game/gameReducer';
 import type { GameState } from '../../game/types';
+import { evaluateExpression } from '../../math/expression';
 import { createThoughtSequence } from '../../math/thoughtSequence';
 import { PresenceReveal } from './PresenceReveal';
 
@@ -19,6 +20,12 @@ function revealState(): Extract<GameState, { phase: 'alternateReveal' }> {
   if (state.phase !== 'guided') throw new Error('Expected guided fixture');
   for (const step of state.plan.steps) {
     state = gameReducer(state, { type: 'SUBMIT_GUIDED', answer: step.expected });
+  }
+  if (state.phase === 'expression') {
+    state = gameReducer(state, {
+      type: 'SUBMIT_EXPRESSION_ANSWER',
+      answer: evaluateExpression(state.expression),
+    });
   }
   if (state.phase !== 'alternateReveal') throw new Error('Expected reveal fixture');
   return state;

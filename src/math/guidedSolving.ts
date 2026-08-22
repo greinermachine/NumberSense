@@ -1,7 +1,5 @@
 import type { GuidedPlan, OperandSide, ParsedDecomposition } from './types';
-
-const glyph = (operator: ParsedDecomposition['operator']) =>
-  operator === '*' ? '×' : operator;
+import { binaryExpression, numberExpression } from './expression';
 
 export function createGuidedPlan(
   wholeLeft: number,
@@ -33,14 +31,15 @@ export function createGuidedPlan(
       steps: [
         { id: 'partial-a', before: firstBefore, expected: first, purpose: 'partial' },
         { id: 'partial-b', before: secondBefore, expected: second, purpose: 'partial' },
-        {
-          id: 'combine',
-          before: `${first} ${glyph(expression.operator)} ${second} =`,
-          expected:
-            expression.operator === '+' ? first + second : first - second,
-          purpose: 'combine',
-        },
       ],
+      completion: {
+        type: 'expression',
+        expression: binaryExpression(
+          numberExpression(first),
+          expression.operator,
+          numberExpression(second),
+        ),
+      },
     };
   }
 
@@ -69,5 +68,6 @@ export function createGuidedPlan(
         purpose: 'combine',
       },
     ],
+    completion: { type: 'answer', value: wholeLeft * wholeRight },
   };
 }

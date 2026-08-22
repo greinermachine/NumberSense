@@ -2,6 +2,19 @@ export type BinaryOperator = '+' | '-' | '*';
 
 export type OperandSide = 'left' | 'right';
 
+export type ExpressionBranch = 'left' | 'right';
+
+export type ExpressionPath = ExpressionBranch[];
+
+export type MathExpression =
+  | { type: 'number'; value: number }
+  | {
+      type: 'binary';
+      operator: BinaryOperator;
+      left: MathExpression;
+      right: MathExpression;
+    };
+
 export type ParsedDecomposition = {
   left: number;
   operator: BinaryOperator;
@@ -34,4 +47,7 @@ export type GuidedPlan = {
   expressionLabel: string;
   steps: GuidedStep[];
   family: 'distribute' | 'regroup';
+  completion:
+    | { type: 'expression'; expression: MathExpression }
+    | { type: 'answer'; value: number };
 };

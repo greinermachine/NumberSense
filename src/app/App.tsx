@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useReducer, useState } from 'react';
 import { GameHeader } from '../components/GameHeader';
 import { IntroScreen } from '../components/IntroScreen';
 import { ResultsView } from '../components/ResultsView';
+import { PROBLEM_BANK } from '../data/problems';
 import { MathStage } from '../features/math/MathStage';
 import { PresenceReveal } from '../features/spirit/PresenceReveal';
 import { SurfTransition } from '../features/surf/SurfTransition';
@@ -11,8 +12,25 @@ import styles from './App.module.css';
 
 const SurfExperience = lazy(() => import('../features/surf/SurfExperience'));
 
+function requestedDevelopmentProblem() {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return undefined;
+  const id = new URLSearchParams(window.location.search).get('mathProblem');
+  return id ? PROBLEM_BANK.find((problem) => problem.id === id) : undefined;
+}
+
 function loadInitialState() {
   if (typeof window === 'undefined') return createInitialGameState();
+  const requestedProblem = requestedDevelopmentProblem();
+  if (requestedProblem) {
+    const initial = createInitialGameState();
+    return {
+      ...initial,
+      problems: [
+        requestedProblem,
+        ...initial.problems.filter((problem) => problem.id !== requestedProblem.id).slice(0, 2),
+      ],
+    };
+  }
   try {
     return restoreGameState(window.localStorage.getItem(STORAGE_KEY)) ?? createInitialGameState();
   } catch {
@@ -23,14 +41,16 @@ function loadInitialState() {
 export function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, loadInitialState);
   const [helpOpen, setHelpOpen] = useState(false);
+  const developmentProblem = requestedDevelopmentProblem();
 
   useEffect(() => {
+    if (developmentProblem) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, serializeGameState(state));
     } catch {
       // Storage can be blocked in private contexts; the game remains fully playable.
     }
-  }, [state]);
+  }, [developmentProblem, state]);
 
   useEffect(() => {
     if (state.phase !== 'intro') void import('../features/surf/SurfExperience');
@@ -72,6 +92,9 @@ export function App() {
         {(state.phase === 'problem' ||
           state.phase === 'decomposing' ||
           state.phase === 'guided' ||
+          state.phase === 'expression' ||
+          state.phase === 'expressionDecomposing' ||
+          state.phase === 'expressionTransforming' ||
           state.phase === 'reflection') && (
           <MathStage state={state} dispatch={dispatch} />
         )}
@@ -120,7 +143,7 @@ export function App() {
             </button>
             <p className={styles.helpKicker}>How to play</p>
             <h2 id="help-title">Turn the number over.</h2>
-            <p>Solve the multiplication directly, or select either number and type another way to make it.</p>
+            <p>Solve directly, or select any active number and type another way to make it. You can do that again whenever the arithmetic gets awkward.</p>
             <div className={styles.helpExample} aria-label="Example: nineteen equals twenty minus one">
               <span>19</span><span>=</span><span>20 − 1</span>
             </div>
