@@ -1,0 +1,40 @@
+.intro {
+  width: min(100%, 46rem);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-7) 0;
+}
+.presence { width: 3rem; height: 3rem; display: grid; place-items: center; margin-bottom: var(--space-6); }
+.presence span {
+  width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--color-accent);
+  box-shadow: 0 0 0.75rem rgb(111 130 94 / 0.35); animation: breathe 3.6s var(--ease-in-out) infinite;
+}
+.eyebrow {
+  margin: 0 0 var(--space-4); color: var(--color-muted); font-size: var(--font-size-xs);
+  font-weight: 680; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.intro h1 {
+  max-width: 12ch; margin: 0; font-family: var(--font-display); font-size: clamp(3rem, 8vw, 6.9rem);
+  line-height: 0.94; letter-spacing: -0.055em; font-weight: 520; text-wrap: balance;
+}
+.lede {
+  max-width: 30rem; margin: var(--space-6) auto 0; color: var(--color-muted);
+  font-size: var(--font-size-md); line-height: 1.55; text-wrap: balance;
+}
+.begin {
+  min-width: 10.75rem; margin-top: var(--space-7); padding: 0.9rem 1.1rem 0.9rem 1.35rem;
+  border: 0; border-radius: var(--radius-pill); background: var(--color-text); color: var(--color-background);
+  font: inherit; font-size: var(--font-size-sm); font-weight: 660; cursor: pointer; display: flex;
+  align-items: center; justify-content: space-between; gap: var(--space-5);
+  box-shadow: 0 0.5rem 1.5rem rgb(24 29 26 / 0.12);
+  transition: transform var(--motion-fast) var(--ease-out), background-color var(--motion-fast) ease;
+}
+.begin:active { transform: scale(0.97); }
+.marks { display: flex; gap: 0.45rem; margin-top: var(--space-6); }
+.marks span { width: 1.65rem; height: 0.18rem; border-radius: var(--radius-pill); background: var(--color-border-strong); }
+@media (hover: hover) and (pointer: fine) { .begin:hover { background: var(--color-accent-strong); } }
+@keyframes breathe { 0%, 100% { transform: scale(0.9); opacity: 0.72; } 50% { transform: scale(1.22); opacity: 1; } }
+@media (max-width: 38rem) { .intro { padding-block: var(--space-6); } .lede { font-size: var(--font-size-sm); } }
+@media (prefers-reduced-motion: reduce) { .presence span { animation: none; } }

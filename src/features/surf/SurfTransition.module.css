@@ -1,0 +1,25 @@
+.transition { width: min(100%, 58rem); text-align: center; padding: var(--space-7) 0; }
+.thoughtLine { display: flex; align-items: center; justify-content: center; gap: clamp(1rem, 3vw, 2rem); }
+.expression { flex: 0 0 auto; margin: 0; font-family: var(--font-display); font-size: clamp(1.8rem, 5.5vw, 3.6rem); font-variant-numeric: tabular-nums; }
+.line { flex: 1 1 14rem; max-width: 22rem; height: 1px; overflow: hidden; }
+.line span {
+  display: block; width: 100%; height: 1px; background: var(--color-accent); transform-origin: left center;
+  animation: carryLine 720ms var(--ease-in-out) both;
+}
+.transition h1 { margin: var(--space-7) 0 0; font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 3.35rem); font-weight: 520; letter-spacing: -0.04em; }
+.controls { margin: var(--space-4) auto 0; color: var(--color-muted); font-size: var(--font-size-xs); }
+.surfButton {
+  margin-top: var(--space-6); min-width: 9rem; padding: 0.9rem 1.15rem; border: 0; border-radius: var(--radius-pill);
+  background: var(--color-text); color: var(--color-background); font-weight: 680; display: inline-flex;
+  align-items: center; justify-content: space-between; gap: var(--space-5); cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+.surfButton:active { transform: scale(0.97); }
+.surfButton:disabled { cursor: wait; opacity: 0.72; }
+@keyframes carryLine { from { transform: scaleX(0.12); opacity: 0.3; } to { transform: scaleX(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .line span { animation: none; } }
+@media (max-width: 38rem) {
+  .thoughtLine { gap: var(--space-4); }
+  .line { flex-basis: 4rem; min-width: 3rem; }
+  .transition h1 { margin-top: var(--space-6); }
+}

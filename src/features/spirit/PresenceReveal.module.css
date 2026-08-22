@@ -1,0 +1,254 @@
+.reveal {
+  width: min(100%, 58rem);
+  min-height: min(34rem, 70svh);
+  display: grid;
+  grid-template-rows: 3.25rem minmax(13rem, 1fr) auto auto auto;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-5) 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.presence {
+  position: relative;
+  width: 100%;
+  height: 3.25rem;
+}
+
+.presence span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 1.1rem rgb(111 130 94 / 0.5);
+  transform: translate3d(-50%, -50%, 0);
+  transition: transform 480ms var(--ease-in-out), box-shadow 240ms ease;
+  will-change: transform;
+}
+
+.presence[data-side='left'] span {
+  transform: translate3d(calc(-50% - min(18vw, 8rem)), -50%, 0);
+}
+
+.presence[data-side='right'] span {
+  transform: translate3d(calc(-50% + min(18vw, 8rem)), -50%, 0);
+}
+
+.thought {
+  min-width: 0;
+  align-self: stretch;
+  display: grid;
+  align-content: center;
+  grid-template-rows: 2rem minmax(8rem, auto);
+}
+
+.annotation {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.015em;
+}
+
+.expressionFrame {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  animation: thoughtChange 280ms var(--ease-out) both;
+}
+
+.expressionVisual {
+  max-width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: clamp(0.38rem, 1.7vw, 1rem);
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 8vw, 6rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1.03;
+  letter-spacing: -0.045em;
+}
+
+.reveal[data-kind='transform'] .expressionVisual,
+.reveal[data-kind='simplify'] .expressionVisual,
+.reveal[data-kind='handoff'] .expressionVisual {
+  font-size: clamp(2rem, 6.5vw, 4.8rem);
+}
+
+.part {
+  color: var(--color-text);
+  opacity: 1;
+  transition: color 240ms ease, opacity 240ms ease, transform 280ms var(--ease-in-out);
+}
+
+.part[data-tone='quiet'] { color: var(--color-muted); opacity: 0.46; }
+.part[data-tone='player'] { color: var(--color-success); }
+.part[data-tone='focus'] { color: var(--color-accent-strong); }
+.part[data-tone='operator'] { color: var(--color-muted); font-weight: 400; }
+.part[data-tone='answer'] { color: var(--color-text); font-weight: 620; }
+
+.reveal[data-kind='decompose'] .part[data-tone='focus'] {
+  animation: revealDecomposition 440ms var(--ease-out) both;
+}
+
+.handoffLine {
+  align-self: center;
+  width: clamp(4rem, 18vw, 12rem);
+  height: 1px;
+  overflow: hidden;
+}
+
+.handoffLine span {
+  display: block;
+  width: 100%;
+  height: 1px;
+  background: var(--color-accent);
+  transform-origin: left center;
+  animation: extendLine 620ms var(--ease-in-out) both;
+}
+
+.progress {
+  min-height: 1.25rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.progress span {
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+  transition: width 180ms var(--ease-out), background-color 180ms ease;
+}
+
+.progress span[data-current='true'] {
+  width: 1.2rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+}
+
+.continue {
+  justify-self: center;
+  min-width: 10rem;
+  margin-top: var(--space-4);
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text);
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-6);
+  transition: transform var(--motion-fast) var(--ease-out), background-color 180ms ease, color 180ms ease;
+}
+
+.reveal[data-kind='handoff'] .continue {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: var(--color-background);
+}
+
+.continue:active { transform: scale(0.97); }
+
+.keys {
+  margin: var(--space-3) 0 0;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .continue:hover { transform: translateY(-1px); }
+  .continue:active { transform: scale(0.97); }
+}
+
+@keyframes thoughtChange {
+  from { opacity: 0; transform: translate3d(0, 0.4rem, 0); filter: blur(2px); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+}
+
+@keyframes revealDecomposition {
+  from { opacity: 0.25; clip-path: inset(0 100% 0 0); }
+  to { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+
+@keyframes extendLine {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+.reveal[data-input='keyboard'] .expressionFrame,
+.reveal[data-input='keyboard'] .part,
+.reveal[data-input='keyboard'] .handoffLine span {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal .presence span { transform: translate3d(-50%, -50%, 0); }
+  .reveal .expressionFrame {
+    animation: thoughtFade 160ms ease both !important;
+  }
+  .reveal .part,
+  .reveal .handoffLine span {
+    animation: none !important;
+    transform: none !important;
+  }
+  .reveal .handoffLine span { opacity: 1; }
+}
+
+@keyframes thoughtFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 38rem) {
+  .reveal {
+    min-height: min(32rem, 72svh);
+    grid-template-rows: 2.75rem minmax(12rem, 1fr) auto auto auto;
+    padding-block: var(--space-3);
+  }
+  .presence { height: 2.75rem; }
+  .thought { grid-template-rows: 1.75rem minmax(8rem, auto); }
+  .expressionVisual { font-size: clamp(2.15rem, 11vw, 3.6rem); }
+  .reveal[data-kind='transform'] .expressionVisual,
+  .reveal[data-kind='simplify'] .expressionVisual,
+  .reveal[data-kind='handoff'] .expressionVisual {
+    font-size: clamp(1.7rem, 8.5vw, 2.8rem);
+  }
+  .handoffLine { width: clamp(3rem, 14vw, 5rem); }
+}
+
+@media (max-height: 44rem) {
+  .reveal {
+    min-height: 0;
+    grid-template-rows: 2.25rem minmax(10.5rem, 1fr) auto auto auto;
+    padding-block: var(--space-2);
+  }
+  .presence { height: 2.25rem; }
+  .thought { grid-template-rows: 1.5rem minmax(7.5rem, auto); }
+  .expressionVisual { font-size: clamp(2.1rem, 7vw, 4.5rem); }
+  .continue { margin-top: var(--space-3); padding-block: 0.72rem; }
+  .keys { margin-top: var(--space-2); }
+}

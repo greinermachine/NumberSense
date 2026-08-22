@@ -1,0 +1,345 @@
+.surfShell {
+  --surf-accent: #dce8b1;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #303a35;
+  color: #f8f6ef;
+  isolation: isolate;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.stageMark {
+  position: absolute;
+  top: clamp(1.25rem, 4vw, 2.5rem);
+  left: clamp(1.25rem, 4vw, 2.5rem);
+  display: grid;
+  gap: 0.28rem;
+  color: rgb(255 255 255 / 0.8);
+  pointer-events: none;
+  animation: stageMark 3.4s var(--ease-out) both;
+}
+
+.stageMark span {
+  font-size: 0.62rem;
+  font-weight: 760;
+  letter-spacing: 0.18em;
+}
+
+.stageMark strong {
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.3rem;
+  height: 0.3rem;
+  border: 1px solid rgb(255 255 255 / 0.62);
+  border-radius: 50%;
+  translate: -50% -50%;
+  box-shadow: 0 0 0 0.18rem rgb(20 28 25 / 0.12);
+  opacity: 0.62;
+  pointer-events: none;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.surfShell[data-running='false'] .reticle {
+  opacity: 0;
+}
+
+.controlHint {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(1.2rem, 5vh, 2.4rem);
+  display: flex;
+  align-items: center;
+  gap: 0.46rem;
+  padding: 0.55rem 0.72rem;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: var(--radius-pill);
+  background: rgb(25 33 29 / 0.42);
+  color: rgb(255 255 255 / 0.75);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  translate: -50% 0;
+  backdrop-filter: blur(0.8rem);
+  pointer-events: none;
+  animation: hintDepart 4.2s var(--ease-out) both;
+}
+
+.controlHint[data-locked='false'] {
+  animation: none;
+}
+
+.controlHint kbd {
+  min-width: 1.35rem;
+  height: 1.35rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 0.3);
+  border-radius: 0.25rem;
+  color: white;
+  font: inherit;
+  font-weight: 760;
+}
+
+.controlHint em {
+  margin-left: 0.28rem;
+  color: rgb(255 255 255 / 0.58);
+  font-style: normal;
+}
+
+.captureLayer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(26 34 30 / 0.12);
+  backdrop-filter: blur(0.16rem);
+}
+
+.capturePanel {
+  width: min(calc(100% - 2rem), 24rem);
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.capturePanel p {
+  margin: 0;
+  color: rgb(255 255 255 / 0.9);
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 3vw, 1.65rem);
+  letter-spacing: -0.025em;
+}
+
+.capturePanel > span {
+  color: rgb(255 255 255 / 0.58);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+.capture,
+.recapture {
+  border: 1px solid rgb(255 255 255 / 0.28);
+  background: rgb(22 30 26 / 0.75);
+  color: white;
+  cursor: pointer;
+  backdrop-filter: blur(0.7rem);
+  transition: transform 150ms var(--ease-out), background-color 180ms ease;
+}
+
+.capture {
+  min-width: 11.5rem;
+  display: inline-flex;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.82rem 1rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+  font-weight: 680;
+}
+
+.recapture {
+  position: absolute;
+  left: clamp(1rem, 4vw, 2.2rem);
+  bottom: clamp(1rem, 4vw, 2.2rem);
+  padding: 0.58rem 0.78rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.68rem;
+}
+
+.capture:active,
+.recapture:active {
+  transform: scale(0.97);
+}
+
+.resetVeil,
+.finished {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.resetVeil {
+  background: rgb(224 226 215 / 0.08);
+  color: rgb(255 255 255 / 0.9);
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 4vw, 2.2rem);
+  animation: resetVeil 460ms var(--ease-in-out) both;
+}
+
+.finished {
+  background: rgb(233 234 222 / 0.1);
+  color: white;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 6vw, 4rem);
+  letter-spacing: -0.04em;
+  backdrop-filter: blur(0.16rem);
+  animation: finishWash 720ms var(--ease-out) both;
+}
+
+.debug {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  min-width: 18rem;
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.72rem 0.82rem;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 0.45rem;
+  background: rgb(12 18 15 / 0.78);
+  color: #e8f1df;
+  font: 0.68rem/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+  pointer-events: none;
+}
+
+.calm {
+  --calm-sky: #e5e4da;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  background: var(--calm-sky);
+  color: #23302b;
+}
+
+.calmStage {
+  margin: 0 0 2rem;
+  font: 750 0.68rem/1 var(--font-body);
+  letter-spacing: 0.18em;
+}
+
+.calmOrb {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--surf-accent);
+  box-shadow: 0 0 1rem rgb(255 255 255 / 0.7);
+}
+
+.calmLine {
+  width: min(68vw, 34rem);
+  height: 1px;
+  margin: var(--space-5) 0;
+  overflow: hidden;
+  background: rgb(30 42 37 / 0.14);
+}
+
+.calmLine span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #52675e;
+  transform-origin: left;
+  animation: calmTravel 4.8s linear both;
+}
+
+.calm > p:not(.calmStage) {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+}
+
+.calm button {
+  margin-top: var(--space-5);
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgb(35 48 43 / 0.25);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 150ms var(--ease-out);
+}
+
+.calm button:active {
+  transform: scale(0.97);
+}
+
+@keyframes stageMark {
+  0% { opacity: 0; transform: translateY(0.35rem); }
+  14%, 68% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0.34; transform: translateY(0); }
+}
+
+@keyframes hintDepart {
+  0%, 62% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0.25rem); }
+}
+
+@keyframes resetVeil {
+  0% { opacity: 0; backdrop-filter: blur(0); }
+  20%, 46% { opacity: 1; backdrop-filter: blur(0.22rem); }
+  100% { opacity: 0; backdrop-filter: blur(0); }
+}
+
+@keyframes finishWash {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes calmTravel {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .capture:hover,
+  .recapture:hover {
+    background: rgb(22 30 26 / 0.9);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .controlHint,
+  .capture,
+  .recapture,
+  .debug {
+    backdrop-filter: none;
+    background: #202825;
+  }
+
+  .captureLayer,
+  .finished {
+    backdrop-filter: none;
+    background: rgb(32 40 37 / 0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calmLine span,
+  .stageMark,
+  .controlHint,
+  .resetVeil,
+  .finished {
+    animation: none;
+  }
+}
+
+@media (max-width: 38rem) {
+  .controlHint em {
+    display: none;
+  }
+
+  .debug {
+    min-width: 0;
+    max-width: calc(100% - 2rem);
+  }
+}

@@ -1,0 +1,182 @@
+.stage {
+  width: min(100%, 50rem);
+  min-height: min(42rem, calc(100svh - 9rem));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-6) 0;
+}
+
+.kicker {
+  margin: 0 0 var(--space-5);
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 680;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.expression {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.35rem, 2vw, 1.1rem);
+  font-family: var(--font-display);
+  font-size: var(--font-size-math);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 0.9;
+  letter-spacing: -0.055em;
+}
+
+.times { color: var(--color-muted); font-size: 0.62em; font-weight: 400; }
+
+.operand {
+  position: relative;
+  min-width: 1.55em;
+  padding: 0.08em 0.12em 0.15em;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out);
+}
+
+.operand:active { transform: scale(0.98); }
+.operand:disabled { cursor: default; }
+.operand[data-selected='true'] { color: var(--color-accent-strong); border-color: var(--color-accent); }
+
+.plus {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50% -0.15rem;
+  color: var(--color-accent-strong);
+  font-family: var(--font-body);
+  font-size: 0.17em;
+  font-weight: 520;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(-0.2rem);
+  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) var(--ease-out);
+}
+
+.operand:focus-visible .plus,
+.operand[data-selected='true'] .plus { opacity: 1; transform: translateY(0); }
+
+.decomposition {
+  width: min(100%, 24rem);
+  position: relative;
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--motion-normal) ease, transform var(--motion-normal) var(--ease-out);
+  @starting-style { opacity: 0; transform: translateY(-0.5rem); }
+}
+
+.stem {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: var(--space-4);
+  background: var(--color-border-strong);
+}
+
+.decomposition label {
+  display: block;
+  margin-bottom: var(--space-3);
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+}
+
+.decompositionRow { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-3); }
+.equals { color: var(--color-muted); font-family: var(--font-display); font-size: 1.5rem; }
+
+.decomposition input,
+.activeStep input,
+.direct input {
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text);
+  text-align: center;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  outline: 0;
+  transition: border-color var(--motion-fast) ease;
+}
+
+.decomposition input { width: 100%; padding: 0.35rem 0.2rem; font-size: clamp(1.75rem, 5vw, 2.7rem); }
+.decomposition input:focus, .activeStep input:focus, .direct input:focus { border-color: var(--color-accent-strong); }
+.decompositionRow button, .activeStep button, .answerLine button {
+  width: 2.4rem; height: 2.4rem; border: 1px solid var(--color-border); border-radius: 50%;
+  background: transparent; color: var(--color-text); cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-out), border-color var(--motion-fast) ease;
+}
+.decompositionRow button:active, .activeStep button:active, .answerLine button:active { transform: scale(0.95); }
+.microcopy { margin: var(--space-2) 0 0; color: var(--color-muted); font-size: 0.7rem; }
+
+.guided { width: min(100%, 34rem); margin-top: var(--space-6); }
+.transformed { margin: 0 0 var(--space-5); font-family: var(--font-display); font-size: var(--font-size-lg); }
+.steps { display: grid; gap: var(--space-3); }
+.completedStep, .activeStep {
+  min-height: 3rem; display: grid; grid-template-columns: minmax(0, 1fr) 7rem 2.4rem;
+  align-items: center; gap: var(--space-3); text-align: right; font-size: var(--font-size-md);
+}
+.completedStep > span, .activeStep > span { white-space: nowrap; }
+.completedStep { color: var(--color-muted); }
+.completedStep strong { color: var(--color-success); text-align: center; font-weight: 650; }
+.activeStep input { width: 100%; padding: 0.35rem; font-size: 1.35rem; }
+.activeStep[data-error='true'] input { border-color: var(--color-feedback); animation: nudge 180ms var(--ease-out); }
+
+.direct { width: min(100%, 14rem); margin-top: var(--space-7); }
+.direct label { display: block; color: var(--color-muted); font-size: var(--font-size-xs); }
+.answerLine { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--space-3); margin-top: var(--space-2); }
+.direct input { width: 100%; padding: 0.35rem; font-size: 1.75rem; }
+.direct[data-error='true'] input { border-color: var(--color-feedback); animation: nudge 180ms var(--ease-out); }
+
+.feedback { margin: var(--space-3) 0 0; color: var(--color-feedback); font-size: var(--font-size-xs); line-height: 1.45; }
+.hintArea { min-height: 3.25rem; margin-top: var(--space-5); }
+.hintButton { padding: var(--space-2); border: 0; background: transparent; color: var(--color-muted); font-size: var(--font-size-xs); text-decoration: underline; text-underline-offset: 0.25rem; cursor: pointer; }
+.hintText { max-width: 24rem; margin: var(--space-2) auto 0; color: var(--color-muted); font-family: var(--font-display); font-style: italic; font-size: var(--font-size-sm); }
+
+.reflection { margin-top: var(--space-7); }
+.settled { margin: 0 0 var(--space-5); color: var(--color-success); font-family: var(--font-display); font-size: var(--font-size-lg); }
+.reflection h2 { margin: 0 0 var(--space-5); font-family: var(--font-display); font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 520; letter-spacing: -0.03em; }
+.reflectionActions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
+.reflectionActions button {
+  padding: 0.7rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-pill);
+  background: var(--color-surface); color: var(--color-text); cursor: pointer;
+}
+.justKnew { margin-top: var(--space-4); padding: var(--space-2); border: 0; background: transparent; color: var(--color-muted); font-size: var(--font-size-xs); cursor: pointer; }
+
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+@media (hover: hover) and (pointer: fine) {
+  .operand:not(:disabled):hover { color: var(--color-accent-strong); border-color: var(--color-border-strong); }
+  .operand:not(:disabled):hover .plus { opacity: 1; transform: translateY(0); }
+  .decompositionRow button:hover, .activeStep button:hover, .answerLine button:hover { border-color: var(--color-text); }
+}
+
+@keyframes nudge { 0%, 100% { transform: translateX(0); } 35% { transform: translateX(-0.22rem); } 70% { transform: translateX(0.18rem); } }
+
+@media (max-width: 38rem) {
+  .stage { min-height: calc(100svh - 8rem); padding: var(--space-5) 0; }
+  .expression { font-size: clamp(3.1rem, 18vw, 5.4rem); }
+  .guided { margin-top: var(--space-5); }
+  .completedStep, .activeStep { grid-template-columns: minmax(0, 1fr) 7rem 2.4rem; gap: var(--space-2); font-size: var(--font-size-sm); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .decomposition { transform: none; }
+  .activeStep[data-error='true'] input, .direct[data-error='true'] input { animation: none; border-width: 2px; }
+}

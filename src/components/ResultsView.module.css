@@ -1,0 +1,25 @@
+.results { width: min(100%, 36rem); text-align: center; padding: var(--space-7) 0; }
+.kicker { margin: 0 0 var(--space-4); color: var(--color-muted); font-size: var(--font-size-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.results h1 { margin: 0; font-family: var(--font-display); font-size: clamp(2.4rem, 7vw, 5rem); line-height: 1; font-weight: 520; letter-spacing: -0.05em; }
+.results h1 span { display: block; margin-top: var(--space-2); color: var(--color-muted); font-family: var(--font-body); font-size: var(--font-size-xs); letter-spacing: 0.12em; }
+.score { margin-top: var(--space-6); font-family: var(--font-display); font-size: 3rem; }
+.score span { color: var(--color-muted); font-size: 0.48em; }
+.rows { display: grid; gap: var(--space-2); margin: var(--space-5) auto; color: var(--color-accent-strong); font-size: 1.1rem; letter-spacing: 0.22em; }
+.stats { display: flex; justify-content: center; gap: var(--space-7); margin: var(--space-6) 0; }
+.stats div { display: flex; flex-direction: column-reverse; gap: var(--space-1); }
+.stats dt { color: var(--color-muted); font-size: var(--font-size-xs); }
+.stats dd { margin: 0; font-family: var(--font-display); font-size: 2rem; }
+.share { min-width: 10rem; padding: 0.85rem 1.1rem; border: 0; border-radius: var(--radius-pill); background: var(--color-text); color: var(--color-background); font-weight: 680; display: inline-flex; justify-content: space-between; gap: var(--space-5); cursor: pointer; transition: transform var(--motion-fast) var(--ease-out); }
+.share:active { transform: scale(0.97); }
+.replay { display: block; margin: var(--space-4) auto 0; padding: var(--space-2); border: 0; background: transparent; color: var(--color-muted); font-size: var(--font-size-xs); cursor: pointer; }
+.notice { min-height: 1.5rem; margin: var(--space-3) 0 0; color: var(--color-success); font-size: var(--font-size-xs); }
+
+@media (max-height: 44rem) {
+  .results { padding: var(--space-4) 0; }
+  .kicker { margin-bottom: var(--space-2); }
+  .score { margin-top: var(--space-4); }
+  .rows { margin-block: var(--space-3); }
+  .stats { margin-block: var(--space-4); }
+  .replay { margin-top: var(--space-2); }
+  .notice { margin-top: var(--space-1); }
+}
