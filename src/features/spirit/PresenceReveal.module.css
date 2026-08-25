@@ -2,7 +2,7 @@
   width: min(100%, 58rem);
   min-height: min(34rem, 70svh);
   display: grid;
-  grid-template-rows: 3.25rem minmax(13rem, 1fr) auto auto auto;
+  grid-template-rows: 3.25rem minmax(13rem, 1fr) auto;
   align-items: center;
   text-align: center;
   padding: var(--space-5) 0;
@@ -145,45 +145,6 @@
   background: var(--color-accent);
 }
 
-.continue {
-  justify-self: center;
-  min-width: 10rem;
-  margin-top: var(--space-4);
-  padding: 0.85rem 1.1rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--color-text);
-  font-weight: 650;
-  cursor: pointer;
-  display: inline-flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-6);
-  transition: transform var(--motion-fast) var(--ease-out), background-color 180ms ease, color 180ms ease;
-}
-
-.reveal[data-kind='handoff'] .continue {
-  border-color: var(--color-text);
-  background: var(--color-text);
-  color: var(--color-background);
-}
-
-.continue:active { transform: scale(0.97); }
-
-.keys {
-  margin: var(--space-3) 0 0;
-  color: var(--color-muted);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .continue:hover { transform: translateY(-1px); }
-  .continue:active { transform: scale(0.97); }
-}
-
 @keyframes thoughtChange {
   from { opacity: 0; transform: translate3d(0, 0.4rem, 0); filter: blur(2px); }
   to { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
@@ -226,7 +187,7 @@
 @media (max-width: 38rem) {
   .reveal {
     min-height: min(32rem, 72svh);
-    grid-template-rows: 2.75rem minmax(12rem, 1fr) auto auto auto;
+    grid-template-rows: 2.75rem minmax(12rem, 1fr) auto;
     padding-block: var(--space-3);
   }
   .presence { height: 2.75rem; }
@@ -243,12 +204,10 @@
 @media (max-height: 44rem) {
   .reveal {
     min-height: 0;
-    grid-template-rows: 2.25rem minmax(10.5rem, 1fr) auto auto auto;
+    grid-template-rows: 2.25rem minmax(10.5rem, 1fr) auto;
     padding-block: var(--space-2);
   }
   .presence { height: 2.25rem; }
   .thought { grid-template-rows: 1.5rem minmax(7.5rem, auto); }
   .expressionVisual { font-size: clamp(2.1rem, 7vw, 4.5rem); }
-  .continue { margin-top: var(--space-3); padding-block: 0.72rem; }
-  .keys { margin-top: var(--space-2); }
 }

@@ -7,8 +7,14 @@ import { createGuidedPlan } from '../math/guidedSolving';
 import { App } from './App';
 
 describe('central math interaction', () => {
-  beforeEach(() => window.localStorage.clear());
-  afterEach(() => cleanup());
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.history.replaceState({}, '', '/');
+  });
+  afterEach(() => {
+    cleanup();
+    window.history.replaceState({}, '', '/');
+  });
 
   it('opens an operand, accepts a valid typed view, and completes guided work', async () => {
     const user = userEvent.setup();
@@ -31,7 +37,7 @@ describe('central math interaction', () => {
     await user.keyboard('{Enter}');
 
     for (const step of plan.steps) {
-      const input = screen.getByLabelText(`Complete ${step.before}`);
+      const input = screen.getByLabelText('Your answer');
       await user.type(input, String(step.expected));
       await user.keyboard('{Enter}');
     }
@@ -75,7 +81,7 @@ describe('central math interaction', () => {
     await user.keyboard('{Enter}');
     for (const step of plan.steps) {
       await user.type(
-        screen.getByLabelText(`Complete ${step.before}`),
+        screen.getByLabelText('Your answer'),
         String(step.expected),
       );
       await user.keyboard('{Enter}');
@@ -96,10 +102,11 @@ describe('central math interaction', () => {
     await user.keyboard('{Enter}');
 
     expect(screen.getByRole('status')).toHaveAccessibleName(/Equivalent|[+−]/);
-    while (screen.queryByRole('button', { name: /Continue/ })) {
+    expect(screen.queryByRole('button', { name: /Continue/ })).not.toBeInTheDocument();
+
+    for (let frame = 0; frame < 6 && screen.queryByRole('status'); frame += 1) {
       await user.keyboard('{Enter}');
     }
-
     expect(
       screen.getAllByRole('button', { name: /in this expression/ }).length,
     ).toBeGreaterThan(1);
@@ -107,6 +114,43 @@ describe('central math interaction', () => {
     expect(screen.getByText('Can either number become friendlier?')).toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Your answer'), String(problem.left * problem.right));
+    await user.keyboard('{Enter}');
+    expect(
+      screen.getByRole('heading', { name: 'Another perspective unfolds' }),
+    ).toBeInTheDocument();
+  });
+
+  it('lets a guided partial product recurse through multiplication without losing context', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', '/?mathProblem=36x12');
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'Begin' }));
+    expect(screen.getByRole('heading', { name: '36 times 12' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Explore another way to make 36' }));
+    await user.type(screen.getByLabelText('Another way to make 36'), '40-4');
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('heading', { name: 'Solve 40 times 12' })).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'Explore another way to make 40 in this expression' }),
+    );
+    await user.type(screen.getByLabelText('Another way to make 40'), '4*10');
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('status')).toHaveAccessibleName('(4 × 10) × 12 − 4 × 12');
+    expect(screen.queryByRole('button', { name: /Continue/ })).not.toBeInTheDocument();
+
+    for (let frame = 0; frame < 6 && screen.queryByRole('status'); frame += 1) {
+      await user.keyboard('{Enter}');
+    }
+    expect(screen.getByRole('heading', { name: 'Solve 4 times 12' })).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Your answer'), '48');
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('heading', { name: 'Solve 480 minus 48' })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Your answer'), '432');
     await user.keyboard('{Enter}');
     expect(
       screen.getByRole('heading', { name: 'Another perspective unfolds' }),

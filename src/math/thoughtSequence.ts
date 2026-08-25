@@ -135,7 +135,7 @@ export function createThoughtSequence(
       annotation: player ? 'You saw…' : 'You knew it.',
       parts: playerParts,
       emphasisSide: player?.side,
-      autoAdvanceMs: 700,
+      autoAdvanceMs: 1_400,
       equivalence: { value: answer, target: answer },
     }),
     makeStep({

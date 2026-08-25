@@ -16,6 +16,12 @@ export function createGuidedPlan(
   if (expression.operator === '+' || expression.operator === '-') {
     const first = expression.left * other;
     const second = expression.right * other;
+    const firstExpression = selectedSide === 'left'
+      ? binaryExpression(numberExpression(expression.left), '*', numberExpression(other))
+      : binaryExpression(numberExpression(other), '*', numberExpression(expression.left));
+    const secondExpression = selectedSide === 'left'
+      ? binaryExpression(numberExpression(expression.right), '*', numberExpression(other))
+      : binaryExpression(numberExpression(other), '*', numberExpression(expression.right));
     const firstBefore =
       selectedSide === 'left'
         ? `${expression.left} × ${other} =`
@@ -28,9 +34,26 @@ export function createGuidedPlan(
     return {
       expressionLabel,
       family: 'distribute',
+      workingExpression: binaryExpression(
+        firstExpression,
+        expression.operator,
+        secondExpression,
+      ),
       steps: [
-        { id: 'partial-a', before: firstBefore, expected: first, purpose: 'partial' },
-        { id: 'partial-b', before: secondBefore, expected: second, purpose: 'partial' },
+        {
+          id: 'partial-a',
+          before: firstBefore,
+          expected: first,
+          purpose: 'partial',
+          path: ['left'],
+        },
+        {
+          id: 'partial-b',
+          before: secondBefore,
+          expected: second,
+          purpose: 'partial',
+          path: ['right'],
+        },
       ],
       completion: {
         type: 'expression',
@@ -55,17 +78,31 @@ export function createGuidedPlan(
     selectedSide === 'left'
       ? `${expression.left} × ${first} =`
       : `${first} × ${expression.right} =`;
+  const firstExpression = selectedSide === 'left'
+    ? binaryExpression(numberExpression(expression.right), '*', numberExpression(other))
+    : binaryExpression(numberExpression(other), '*', numberExpression(expression.left));
+  const workingExpression = selectedSide === 'left'
+    ? binaryExpression(numberExpression(expression.left), '*', firstExpression)
+    : binaryExpression(firstExpression, '*', numberExpression(expression.right));
 
   return {
     expressionLabel,
     family: 'regroup',
+    workingExpression,
     steps: [
-      { id: 'regroup-a', before: firstBefore, expected: first, purpose: 'partial' },
+      {
+        id: 'regroup-a',
+        before: firstBefore,
+        expected: first,
+        purpose: 'partial',
+        path: [selectedSide === 'left' ? 'right' : 'left'],
+      },
       {
         id: 'regroup-b',
         before: secondBefore,
         expected: wholeLeft * wholeRight,
         purpose: 'combine',
+        path: [],
       },
     ],
     completion: { type: 'answer', value: wholeLeft * wholeRight },

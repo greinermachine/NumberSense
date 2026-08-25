@@ -4,6 +4,7 @@ import { createInitialGameState, gameReducer } from '../../game/gameReducer';
 import type { GameState } from '../../game/types';
 import { evaluateExpression } from '../../math/expression';
 import { createThoughtSequence } from '../../math/thoughtSequence';
+import { REDUCED_THOUGHT_STEP_MS } from '../animationTiming';
 import { PresenceReveal } from './PresenceReveal';
 
 function revealState(): Extract<GameState, { phase: 'alternateReveal' }> {
@@ -43,7 +44,8 @@ afterEach(() => {
 });
 
 describe('PresenceReveal', () => {
-  it('supports click, Enter, and Space progression before entering surf transition', () => {
+  it('advances every deterministic thought automatically before the surf-entry screen', async () => {
+    vi.useFakeTimers();
     const state = revealState();
     const onContinue = vi.fn();
     const steps = createThoughtSequence(
@@ -55,33 +57,37 @@ describe('PresenceReveal', () => {
 
     const region = screen.getByRole('region', { name: 'Another perspective unfolds' });
     expect(region).toHaveAttribute('data-kind', 'player');
-    fireEvent.click(screen.getByRole('button', { name: /Continue to thought 2/ }));
-    expect(region).toHaveAttribute('data-kind', 'focus');
-    fireEvent.keyDown(region, { key: 'Enter' });
-    expect(region).toHaveAttribute('data-kind', 'decompose');
-    fireEvent.keyDown(region, { key: ' ' });
-    expect(region).toHaveAttribute('data-kind', 'transform');
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
 
-    for (let index = 3; index < steps.length - 1; index += 1) {
-      fireEvent.keyDown(region, { key: 'Enter' });
+    for (let index = 0; index < steps.length; index += 1) {
+      await act(async () => vi.advanceTimersToNextTimerAsync());
+      if (index < steps.length - 1) {
+        expect(region).toHaveAttribute('data-kind', steps[index + 1].kind);
+        expect(onContinue).not.toHaveBeenCalled();
+      }
     }
-    expect(screen.getByRole('button', { name: 'Follow the mathematical line' })).toBeInTheDocument();
-    fireEvent.keyDown(region, { key: 'Enter' });
     expect(onContinue).toHaveBeenCalledOnce();
   });
 
-  it('gives the player thought a short automatic acknowledgement', () => {
+  it('lets click, Enter, and Space skip an in-progress step without a Continue control', () => {
     vi.useFakeTimers();
-    render(<PresenceReveal state={revealState()} onContinue={vi.fn()} />);
+    const onContinue = vi.fn();
+    render(<PresenceReveal state={revealState()} onContinue={onContinue} />);
     const region = screen.getByRole('region', { name: 'Another perspective unfolds' });
+
     expect(region).toHaveAttribute('data-kind', 'player');
-    act(() => vi.advanceTimersByTime(699));
-    expect(region).toHaveAttribute('data-kind', 'player');
-    act(() => vi.advanceTimersByTime(1));
+    fireEvent.click(region);
     expect(region).toHaveAttribute('data-kind', 'focus');
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(region).toHaveAttribute('data-kind', 'decompose');
+    fireEvent.keyDown(window, { key: ' ' });
+    expect(region).toHaveAttribute('data-kind', 'transform');
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(onContinue).not.toHaveBeenCalled();
   });
 
-  it('preserves every reasoning step in reduced-motion mode', () => {
+  it('uses quick automatic steps while preserving reduced-motion reasoning states', () => {
+    vi.useFakeTimers();
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       value: vi.fn().mockReturnValue({
@@ -99,8 +105,11 @@ describe('PresenceReveal', () => {
     render(<PresenceReveal state={revealState()} onContinue={vi.fn()} />);
     const region = screen.getByRole('region', { name: 'Another perspective unfolds' });
     expect(region).toHaveAttribute('data-motion', 'reduced');
-    fireEvent.click(screen.getByRole('button', { name: /Continue to thought 2/ }));
+    act(() => vi.advanceTimersByTime(REDUCED_THOUGHT_STEP_MS - 1));
+    expect(region).toHaveAttribute('data-kind', 'player');
+    act(() => vi.advanceTimersByTime(1));
     expect(region).toHaveAttribute('data-kind', 'focus');
     expect(screen.getByRole('status')).toHaveTextContent('I looked over here');
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });

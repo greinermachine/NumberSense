@@ -97,7 +97,7 @@ describe('recursive expressions', () => {
     expect(evaluateExpression(replaced!)).toBe(evaluateExpression(expression));
   });
 
-  it('keeps a recursive decomposition inside multiplication instead of simplifying it away', () => {
+  it('distributes an additive decomposition inside multiplication', () => {
     const expression = binaryExpression(
       numberExpression(960),
       '-',
@@ -109,12 +109,87 @@ describe('recursive expressions', () => {
       decomposition('10-4', 6),
     );
 
-    expect(transformed?.frames).toHaveLength(1);
-    expect(transformed?.frames[0].display).toBe('960 − (10 − 4) × 8');
-    expect(formatExpression(transformed!.finalExpression)).toBe(
+    expect(transformed?.frames.map((frame) => frame.display)).toEqual([
       '960 − (10 − 4) × 8',
+      '960 − (10 × 8 − 4 × 8)',
+    ]);
+    expect(formatExpression(transformed!.finalExpression)).toBe(
+      '960 − (10 × 8 − 4 × 8)',
     );
     expect(evaluateExpression(transformed!.finalExpression)).toBe(912);
+  });
+
+  it('regroups 40 = 4 × 10 across 40 × 12 visibly', () => {
+    const expression = pair(40, '*', 12);
+    const transformed = transformNumberNode(
+      expression,
+      ['left'],
+      decomposition('4*10', 40),
+    );
+
+    expect(transformed?.frames.map((frame) => frame.display)).toEqual([
+      '(4 × 10) × 12',
+      '4 × 12 × 10',
+      '(4 × 12) × 10',
+      '48 × 10',
+      '480',
+    ]);
+    expect(evaluateExpression(transformed!.finalExpression)).toBe(480);
+  });
+
+  it('reorders 5 × 10 × 19 into 5 × 19 × 10', () => {
+    const transformed = transformNumberNode(
+      pair(50, '*', 19),
+      ['left'],
+      decomposition('5*10', 50),
+    );
+    expect(transformed?.frames[1].display).toBe('5 × 19 × 10');
+    expect(transformed?.frames.at(-1)?.display).toBe('950');
+  });
+
+  it('distributes either factor of an intermediate product', () => {
+    const transformed = transformNumberNode(
+      pair(40, '*', 12),
+      ['right'],
+      decomposition('10+2', 12),
+    );
+    expect(transformed?.frames.map((frame) => frame.display)).toEqual([
+      '40 × (10 + 2)',
+      '40 × 10 + 40 × 2',
+    ]);
+    expect(evaluateExpression(transformed!.finalExpression)).toBe(480);
+  });
+
+  it('preserves the surrounding expression while regrouping nested factors', () => {
+    const expression = binaryExpression(pair(40, '*', 12), '-', numberExpression(48));
+    const transformed = transformNumberNode(
+      expression,
+      ['left', 'left'],
+      decomposition('4*10', 40),
+    );
+    expect(transformed?.frames.map((frame) => frame.display)).toEqual([
+      '(4 × 10) × 12 − 48',
+      '4 × 12 × 10 − 48',
+      '(4 × 12) × 10 − 48',
+      '48 × 10 − 48',
+      '480 − 48',
+    ]);
+    expect(evaluateExpression(transformed!.finalExpression)).toBe(432);
+  });
+
+  it('uses subtraction copy only when an outer subtraction flips signs', () => {
+    const subtracting = transformNumberNode(
+      pair(960, '-', 48),
+      ['right'],
+      decomposition('50-2', 48),
+    );
+    const adding = transformNumberNode(
+      pair(950, '+', 76),
+      ['right'],
+      decomposition('70+6', 76),
+    );
+    expect(subtracting?.frames[1].kind).toBe('sign');
+    expect(adding?.frames[1].kind).toBe('reassociate');
   });
 
   it('systematically preserves full-expression value for equivalent replacements', () => {

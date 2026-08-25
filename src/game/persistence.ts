@@ -1,6 +1,11 @@
 import { selectAlternateView } from '../data/alternateViews';
 import { parseDecomposition } from '../math/decomposition';
-import { evaluateExpression, numberAtPath } from '../math/expression';
+import {
+  evaluateExpression,
+  expressionAtPath,
+  numberAtPath,
+  replaceExpressionAtPath,
+} from '../math/expression';
 import { createGuidedPlan } from '../math/guidedSolving';
 import type {
   BinaryOperator,
@@ -10,13 +15,20 @@ import type {
   ParsedDecomposition,
 } from '../math/types';
 import { createInitialGameState } from './gameReducer';
-import type { Discovery, GameState, ProblemResult, SolveMethod } from './types';
+import type {
+  Discovery,
+  ExpressionContinuation,
+  GameState,
+  GuidedProgress,
+  ProblemResult,
+  SolveMethod,
+} from './types';
 
 export const STORAGE_KEY = 'number-sense:daily:v1';
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
 
 type Snapshot = {
-  version: 2;
+  version: 3;
   dateKey: string;
   phase: GameState['phase'];
   stageIndex: number;
@@ -34,6 +46,7 @@ type Snapshot = {
   solvedBy?: SolveMethod;
   activeExpression?: MathExpression;
   selectedPath?: ExpressionPath;
+  continuation?: ExpressionContinuation['type'];
 };
 
 const PHASES = new Set<GameState['phase']>([
@@ -52,18 +65,53 @@ const PHASES = new Set<GameState['phase']>([
 ]);
 
 function persistedPhase(state: GameState): GameState['phase'] {
-  return state.phase === 'expressionTransforming' ? 'expression' : state.phase;
+  if (state.phase !== 'expressionTransforming') return state.phase;
+  if (state.continuation.type === 'direct') return 'reflection';
+  if (state.continuation.type === 'answer') return 'alternateReveal';
+  return state.continuation.type === 'guided' ? 'guided' : 'expression';
 }
 
 function activeExpression(state: GameState): MathExpression | undefined {
+  if (state.phase === 'guided') return state.workingExpression;
   if (state.phase === 'expression' || state.phase === 'expressionDecomposing') {
     return state.expression;
   }
-  return state.phase === 'expressionTransforming' ? state.finalExpression : undefined;
+  return state.phase === 'expressionTransforming' &&
+    state.continuation.type !== 'direct' &&
+    state.continuation.type !== 'answer'
+    ? state.finalExpression
+    : undefined;
+}
+
+function guidedProgress(state: GameState): GuidedProgress | undefined {
+  if (state.phase === 'guided') return state;
+  if (
+    (state.phase === 'expressionDecomposing' ||
+      state.phase === 'expressionTransforming') &&
+    state.continuation.type === 'guided'
+  ) {
+    return state.continuation;
+  }
+  return undefined;
 }
 
 export function serializeGameState(state: GameState): string {
   const expression = activeExpression(state);
+  const progress = guidedProgress(state);
+  let continuation: Snapshot['continuation'];
+  if (state.phase === 'expressionDecomposing') {
+    continuation = state.continuation.type;
+  } else if (
+    state.phase === 'expressionTransforming' &&
+    (state.continuation.type === 'guided' || state.continuation.type === 'problem')
+  ) {
+    continuation = state.continuation.type;
+  }
+  const solvedBy = 'solvedBy' in state
+    ? state.solvedBy
+    : state.phase === 'expressionTransforming' && state.continuation.type === 'answer'
+      ? state.continuation.solvedBy
+      : undefined;
   const snapshot: Snapshot = {
     version: STORAGE_VERSION,
     dateKey: state.dateKey,
@@ -75,18 +123,24 @@ export function serializeGameState(state: GameState): string {
     manipulationCounts: state.manipulationCounts,
     discoveries: state.discoveries,
     results: state.results,
-    ...('selectedSide' in state ? { selectedSide: state.selectedSide } : {}),
-    ...('afterDirect' in state ? { afterDirect: state.afterDirect } : {}),
-    ...(state.phase === 'guided'
-      ? { guidedDecomposition: state.expression }
+    ...(state.phase === 'decomposing'
+      ? { selectedSide: state.selectedSide }
       : {}),
-    ...('stepIndex' in state ? { stepIndex: state.stepIndex } : {}),
-    ...('answers' in state ? { answers: state.answers } : {}),
-    ...('solvedBy' in state ? { solvedBy: state.solvedBy } : {}),
+    ...('afterDirect' in state ? { afterDirect: state.afterDirect } : {}),
+    ...(progress
+      ? {
+          selectedSide: progress.selectedSide,
+          guidedDecomposition: progress.decomposition,
+          stepIndex: progress.stepIndex,
+          answers: progress.answers,
+        }
+      : {}),
+    ...(solvedBy ? { solvedBy } : {}),
     ...(expression ? { activeExpression: expression } : {}),
     ...(state.phase === 'expressionDecomposing'
       ? { selectedPath: state.selectedPath }
       : {}),
+    ...(continuation ? { continuation } : {}),
   };
   return JSON.stringify(snapshot);
 }
@@ -226,6 +280,63 @@ function readPath(value: unknown): ExpressionPath | null {
     : null;
 }
 
+function readGuidedProgress(
+  value: Record<string, unknown>,
+  problem: GameState['problems'][number],
+  version: unknown,
+): GuidedProgress | null {
+  if (!isOperandSide(value.selectedSide)) return null;
+  const storedDecomposition = version === 1
+    ? value.expression
+    : value.guidedDecomposition;
+  if (!storedDecomposition || typeof storedDecomposition !== 'object') return null;
+  const operand = value.selectedSide === 'left' ? problem.left : problem.right;
+  const normalized = (storedDecomposition as Record<string, unknown>).normalized;
+  if (typeof normalized !== 'string') return null;
+  const parsed = parseDecomposition(normalized, operand);
+  if (!parsed.ok) return null;
+  const plan = createGuidedPlan(
+    problem.left,
+    problem.right,
+    value.selectedSide,
+    parsed.expression,
+  );
+  const stepIndex = typeof value.stepIndex === 'number' ? value.stepIndex : 0;
+  const answers = Array.isArray(value.answers) &&
+    value.answers.every(Number.isSafeInteger)
+    ? (value.answers as number[])
+    : [];
+  if (
+    stepIndex < 0 ||
+    stepIndex > plan.steps.length ||
+    answers.length !== stepIndex ||
+    answers.some((answer, index) => answer !== plan.steps[index].expected)
+  ) {
+    return null;
+  }
+  return {
+    selectedSide: value.selectedSide,
+    decomposition: parsed.expression,
+    plan,
+    stepIndex,
+    answers,
+  };
+}
+
+function rebuildGuidedExpression(progress: GuidedProgress): MathExpression | null {
+  let expression = progress.plan.workingExpression;
+  for (const [index, answer] of progress.answers.entries()) {
+    const replaced = replaceExpressionAtPath(
+      expression,
+      progress.plan.steps[index].path,
+      { type: 'number', value: answer },
+    );
+    if (!replaced) return null;
+    expression = replaced;
+  }
+  return expression;
+}
+
 export function restoreGameState(raw: string | null, date = new Date()): GameState | null {
   if (!raw || raw.length > 50_000) return null;
   try {
@@ -233,7 +344,7 @@ export function restoreGameState(raw: string | null, date = new Date()): GameSta
     const initial = createInitialGameState(date);
     const version = value.version;
     if (
-      (version !== 1 && version !== STORAGE_VERSION) ||
+      (version !== 1 && version !== 2 && version !== STORAGE_VERSION) ||
       value.dateKey !== initial.dateKey ||
       typeof value.phase !== 'string' ||
       !PHASES.has(value.phase as GameState['phase']) ||
@@ -287,40 +398,43 @@ export function restoreGameState(raw: string | null, date = new Date()): GameSta
     }
 
     if (phase === 'guided') {
-      if (!isOperandSide(value.selectedSide)) return null;
-      const storedDecomposition = version === 1
-        ? value.expression
-        : value.guidedDecomposition;
-      if (!storedDecomposition || typeof storedDecomposition !== 'object') return null;
       const problem = base.problems[base.stageIndex];
-      const operand = value.selectedSide === 'left' ? problem.left : problem.right;
-      const normalized = (storedDecomposition as Record<string, unknown>).normalized;
-      if (typeof normalized !== 'string') return null;
-      const parsed = parseDecomposition(normalized, operand);
-      if (!parsed.ok) return null;
-      const plan = createGuidedPlan(problem.left, problem.right, value.selectedSide, parsed.expression);
-      const stepIndex = typeof value.stepIndex === 'number' ? value.stepIndex : 0;
-      const answers = Array.isArray(value.answers) && value.answers.every(Number.isFinite)
-        ? (value.answers as number[])
-        : [];
+      let progress = readGuidedProgress(value, problem, version);
+      if (!progress) return null;
+      const workingExpression = version === STORAGE_VERSION && value.activeExpression
+        ? readExpression(value.activeExpression)
+        : rebuildGuidedExpression(progress);
       if (
-        stepIndex === plan.steps.length &&
-        answers.length >= plan.steps.length &&
-        plan.completion.type === 'expression'
-      ) {
-        return { ...base, phase: 'expression', expression: plan.completion.expression };
+        !workingExpression ||
+        evaluateExpression(workingExpression) !== problem.left * problem.right
+      ) return null;
+
+      if (progress.stepIndex === progress.plan.steps.length) {
+        return { ...base, phase: 'expression', expression: workingExpression };
       }
-      if (stepIndex < 0 || stepIndex >= plan.steps.length || answers.length !== stepIndex) {
-        return null;
+
+      const focused = expressionAtPath(
+        workingExpression,
+        progress.plan.steps[progress.stepIndex].path,
+      );
+      if (
+        focused?.type === 'number' &&
+        focused.value === progress.plan.steps[progress.stepIndex].expected
+      ) {
+        progress = {
+          ...progress,
+          stepIndex: progress.stepIndex + 1,
+          answers: [...progress.answers, focused.value],
+        };
+        if (progress.stepIndex === progress.plan.steps.length) {
+          return { ...base, phase: 'expression', expression: workingExpression };
+        }
       }
       return {
         ...base,
         phase,
-        selectedSide: value.selectedSide,
-        expression: parsed.expression,
-        plan,
-        stepIndex,
-        answers,
+        ...progress,
+        workingExpression,
       };
     }
 
@@ -337,11 +451,23 @@ export function restoreGameState(raw: string | null, date = new Date()): GameSta
       if (phase === 'expressionDecomposing') {
         const selectedPath = readPath(value.selectedPath);
         if (!selectedPath || numberAtPath(expression, selectedPath) === null) return null;
+        let continuation: ExpressionContinuation = { type: 'problem' };
+        if (value.continuation === 'guided') {
+          const progress = readGuidedProgress(value, problem, version);
+          if (!progress || progress.stepIndex >= progress.plan.steps.length) return null;
+          continuation = { type: 'guided', ...progress };
+        } else if (
+          value.continuation !== undefined &&
+          value.continuation !== 'problem'
+        ) {
+          return null;
+        }
         return {
           ...base,
           phase,
           expression,
           selectedPath,
+          continuation,
         };
       }
       return { ...base, phase: 'expression', expression };

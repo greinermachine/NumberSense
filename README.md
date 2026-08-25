@@ -32,7 +32,7 @@ npm run build
 
 1. Solve a multiplication directly, or select an operand.
 2. Type one binary expression using `+`, `-`, or `*`/`x`.
-3. Complete the generated distributive or regrouping steps.
+3. Work through the generated expression; any awkward partial product can be turned over again.
 4. See a curated alternate view that avoids repeating yours when possible.
 5. Explicitly launch a 10–20 second surf line.
 6. Repeat for one warm, one exploratory, and one puzzle-like problem.

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { KeyboardEvent } from 'react';
 import type { GameState } from '../../game/types';
 import { createThoughtSequence } from '../../math/thoughtSequence';
+import {
+  REDUCED_THOUGHT_STEP_MS,
+  THOUGHT_HANDOFF_MS,
+  THOUGHT_STEP_MS,
+} from '../animationTiming';
 import styles from './PresenceReveal.module.css';
 
 type RevealState = Extract<GameState, { phase: 'alternateReveal' }>;
@@ -48,16 +52,22 @@ export function PresenceReveal({ state, onContinue }: { state: RevealState; onCo
   }, [isLastStep, onContinue, steps.length]);
 
   useEffect(() => {
-    if (!step.autoAdvanceMs) return;
-    const timeout = window.setTimeout(() => advance('auto'), step.autoAdvanceMs);
+    const delay = reducedMotion
+      ? REDUCED_THOUGHT_STEP_MS
+      : step.autoAdvanceMs ?? (isLastStep ? THOUGHT_HANDOFF_MS : THOUGHT_STEP_MS);
+    const timeout = window.setTimeout(() => advance('auto'), delay);
     return () => window.clearTimeout(timeout);
-  }, [advance, step.autoAdvanceMs]);
+  }, [advance, isLastStep, reducedMotion, step.autoAdvanceMs, step.id]);
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
-    event.preventDefault();
-    advance('keyboard');
-  };
+  useEffect(() => {
+    const skipCurrentStep = (event: KeyboardEvent) => {
+      if (event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      advance('keyboard');
+    };
+    window.addEventListener('keydown', skipCurrentStep);
+    return () => window.removeEventListener('keydown', skipCurrentStep);
+  }, [advance]);
 
   const announcement = [step.annotation, step.accessibleExpression]
     .filter(Boolean)
@@ -70,9 +80,12 @@ export function PresenceReveal({ state, onContinue }: { state: RevealState; onCo
       data-kind={step.kind}
       data-input={advanceSource}
       data-motion={reducedMotion ? 'reduced' : 'full'}
-      onKeyDown={handleKeyDown}
+      onClick={() => advance('pointer')}
     >
       <h1 id="alternate-title" className={styles.srOnly}>Another perspective unfolds</h1>
+      <p className={styles.srOnly}>
+        This mathematical sequence advances automatically. Press Enter or Space to skip a step.
+      </p>
 
       <div
         className={styles.presence}
@@ -117,19 +130,6 @@ export function PresenceReveal({ state, onContinue }: { state: RevealState; onCo
           <span key={item.id} data-current={index === stepIndex} />
         ))}
       </div>
-
-      <button
-        className={styles.continue}
-        type="button"
-        onClick={() => advance('pointer')}
-        aria-label={isLastStep ? 'Follow the mathematical line' : `Continue to thought ${stepIndex + 2} of ${steps.length}`}
-        autoFocus
-      >
-        <span>{isLastStep ? 'Follow the line' : 'Continue'}</span>
-        <span aria-hidden="true">→</span>
-      </button>
-
-      <p className={styles.keys} aria-hidden="true">Enter · Space · Click</p>
     </section>
   );
 }

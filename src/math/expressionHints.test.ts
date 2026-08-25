@@ -36,6 +36,27 @@ describe('expression assistance', () => {
     });
   });
 
+  it('points multiplication toward a player-chosen factor decomposition', () => {
+    const product = binaryExpression(
+      numberExpression(40),
+      '*',
+      numberExpression(12),
+    );
+    expect(createExpressionAssistance(product, 1, 0, false)?.message).toBe(
+      'Can either number become easier pieces?',
+    );
+    expect(createExpressionAssistance(product, 2, 0, false)?.message).toBe(
+      'Look at 40.',
+    );
+    expect(createExpressionAssistance(product, 3, 0, false)?.message).toBe(
+      '40 has a 10 hiding inside it.',
+    );
+    expect(createExpressionAssistance(product, 4, 0, false)).toMatchObject({
+      message: 'Have you considered 40 = 4 × 10?',
+      suggestion: { path: ['left'], input: '4*10', kind: 'factor' },
+    });
+  });
+
   it('advances beyond an attempt-triggered clue when a hint is requested', () => {
     expect(createExpressionAssistance(awkward, 0, 1, false)).toMatchObject({
       level: 1,

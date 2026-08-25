@@ -133,8 +133,8 @@ function InteractiveSurf({ course, onComplete }: { course: SurfCourseDefinition;
     finishedRef.current = true;
     setFinished(true);
     if (document.pointerLockElement) document.exitPointerLock();
-    finishTimer.current = window.setTimeout(onComplete, 720);
-  }, [onComplete]);
+    finishTimer.current = window.setTimeout(onComplete, course.completionDelayMs);
+  }, [course.completionDelayMs, onComplete]);
 
   const noteReset = useCallback((resets: number) => setResetPulse(resets), []);
 
@@ -289,8 +289,24 @@ function makeRampMarkGeometry(ramp: RampDefinition) {
     const z = ramp.startZ + (ramp.endZ - ramp.startZ) * progress;
     addLine(ramp.centerX - ramp.width / 2 + inset, z, ramp.centerX + ramp.width / 2 - inset, z);
   }
-  const highX = ramp.centerX + (ramp.bankRadians >= 0 ? 1 : -1) * (ramp.width / 2 - 0.28);
-  addLine(highX, ramp.startZ + 0.3, highX, ramp.endZ - 0.3);
+  if (ramp.kind === 'landing') {
+    const edgeInset = ramp.width * 0.12;
+    addLine(
+      ramp.centerX - ramp.width / 2 + edgeInset,
+      ramp.startZ + 0.3,
+      ramp.centerX - ramp.width / 2 + edgeInset,
+      ramp.endZ - 0.3,
+    );
+    addLine(
+      ramp.centerX + ramp.width / 2 - edgeInset,
+      ramp.startZ + 0.3,
+      ramp.centerX + ramp.width / 2 - edgeInset,
+      ramp.endZ - 0.3,
+    );
+  } else {
+    const highX = ramp.centerX + Math.sign(ramp.bankRadians) * (ramp.width / 2 - 0.28);
+    addLine(highX, ramp.startZ + 0.3, highX, ramp.endZ - 0.3);
+  }
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
   return geometry;
@@ -682,6 +698,8 @@ function SurfController({
         fps: smoothedFps.current,
         simulationSteps,
         checkpointIndex: current.checkpointIndex,
+        contactRampId: current.contactRampId,
+        landingContactTime: current.landingContactTime,
         resets: current.resets,
       });
     }
@@ -708,7 +726,8 @@ function SurfDebugPanel({ stats }: { stats: SurfDebugStats }) {
     <output className={styles.debug} aria-label="Surf physics debug information">
       <span>speed {stats.speed.toFixed(2)}</span>
       <span>velocity {vector(stats.velocity)}</span>
-      <span>contact {stats.contactState} · {vector(stats.contactNormal)}</span>
+      <span>contact {stats.contactState} · {stats.contactRampId ?? 'none'} · {vector(stats.contactNormal)}</span>
+      <span>landing {stats.landingContactTime.toFixed(2)} s</span>
       <span>wish {stats.wishSpeed.toFixed(1)} · {vector(stats.wishDirection)}</span>
       <span>{stats.fps.toFixed(0)} fps · {stats.simulationSteps} steps</span>
       <span>checkpoint {stats.checkpointIndex + 1} · resets {stats.resets}</span>

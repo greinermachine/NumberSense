@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { PROBLEM_BANK } from '../data/problems';
 import { formatExpression } from '../math/expression';
 import { createInitialGameState, gameReducer } from './gameReducer';
 import { restoreGameState, serializeGameState, STORAGE_VERSION } from './persistence';
+import type { GameState } from './types';
 
 const today = new Date('2026-08-22T12:00:00.000Z');
+
+function stateForProblem(problemId: string): GameState {
+  const initial = createInitialGameState(today);
+  const problem = PROBLEM_BANK.find((item) => item.id === problemId);
+  if (!problem) throw new Error(`Missing fixture ${problemId}`);
+  return { ...initial, problems: [problem, ...initial.problems.slice(1)] };
+}
 
 describe('persistence', () => {
   it('round-trips a valid in-progress daily state', () => {
@@ -95,6 +104,45 @@ describe('persistence', () => {
     }
   });
 
+  it('round-trips a recursive guided multiplication checkpoint', () => {
+    let state = gameReducer(stateForProblem('36x12'), { type: 'START' });
+    state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: 'left' });
+    state = gameReducer(state, { type: 'SUBMIT_DECOMPOSITION', input: '40-4' });
+    expect(state.phase).toBe('guided');
+
+    const restored = restoreGameState(serializeGameState(state), today);
+    expect(restored).toMatchObject({ phase: 'guided', stepIndex: 0, answers: [] });
+    if (restored?.phase === 'guided') {
+      expect(formatExpression(restored.workingExpression)).toBe('40 × 12 − 4 × 12');
+    }
+  });
+
+  it('restores a completed guided regrouping at the next partial product', () => {
+    let state = gameReducer(stateForProblem('36x12'), { type: 'START' });
+    state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: 'left' });
+    state = gameReducer(state, { type: 'SUBMIT_DECOMPOSITION', input: '40-4' });
+    state = gameReducer(state, {
+      type: 'OPEN_EXPRESSION_DECOMPOSITION',
+      path: ['left'],
+    });
+    state = gameReducer(state, {
+      type: 'SUBMIT_EXPRESSION_DECOMPOSITION',
+      input: '4*10',
+    });
+    expect(state.phase).toBe('expressionTransforming');
+
+    const restored = restoreGameState(serializeGameState(state), today);
+    expect(restored).toMatchObject({
+      phase: 'guided',
+      stepIndex: 1,
+      answers: [480],
+      manipulationCounts: [1, 0, 0],
+    });
+    if (restored?.phase === 'guided') {
+      expect(formatExpression(restored.workingExpression)).toBe('480 − 4 × 12');
+    }
+  });
+
   it('restores a transformation at its clean final-expression checkpoint', () => {
     let state = gameReducer(createInitialGameState(today), { type: 'START' });
     const problem = state.problems[0];
@@ -131,6 +179,78 @@ describe('persistence', () => {
         formatExpression(state.finalExpression),
       );
     }
+  });
+
+  it('restores an accepted final expression at the completed reveal', () => {
+    let state = gameReducer(createInitialGameState(today), { type: 'START' });
+    const problem = state.problems[0];
+    const view = problem.alternateViews.find(
+      (item) => item.operator === '+' || item.operator === '-',
+    )!;
+    state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: view.side });
+    state = gameReducer(state, {
+      type: 'SUBMIT_DECOMPOSITION',
+      input: `${view.left}${view.operator}${view.right}`,
+    });
+    if (state.phase !== 'guided') throw new Error('Expected guided state');
+    for (const step of state.plan.steps) {
+      state = gameReducer(state, { type: 'SUBMIT_GUIDED', answer: step.expected });
+    }
+    if (state.phase !== 'expression') throw new Error('Expected active expression');
+
+    state = gameReducer(state, {
+      type: 'SUBMIT_EXPRESSION_ANSWER',
+      answer: `${problem.left * problem.right + 10} - 10`,
+    });
+    expect(state.phase).toBe('expressionTransforming');
+
+    const restored = restoreGameState(serializeGameState(state), today);
+    expect(restored).toMatchObject({
+      phase: 'alternateReveal',
+      solvedBy: 'guided',
+      results: [{ problemId: problem.id, solvedBy: 'guided' }],
+    });
+  });
+
+  it('restores an accepted direct expression at reflection without pre-solving it', () => {
+    let state = gameReducer(createInitialGameState(today), { type: 'START' });
+    const problem = state.problems[0];
+    const expected = problem.left * problem.right;
+    state = gameReducer(state, {
+      type: 'SUBMIT_DIRECT',
+      answer: `${expected + 10} - 10`,
+    });
+    expect(state.phase).toBe('expressionTransforming');
+
+    const restored = restoreGameState(serializeGameState(state), today);
+    expect(restored).toMatchObject({ phase: 'reflection', results: [] });
+  });
+
+  it('restores an accepted guided expression at the next exact partial', () => {
+    let state = gameReducer(createInitialGameState(today), { type: 'START' });
+    const problem = state.problems[0];
+    const view = problem.alternateViews.find(
+      (item) => item.operator === '+' || item.operator === '-',
+    )!;
+    state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: view.side });
+    state = gameReducer(state, {
+      type: 'SUBMIT_DECOMPOSITION',
+      input: `${view.left}${view.operator}${view.right}`,
+    });
+    if (state.phase !== 'guided') throw new Error('Expected guided state');
+    const expected = state.plan.steps[0].expected;
+    state = gameReducer(state, {
+      type: 'SUBMIT_GUIDED',
+      answer: `${expected + 10} - 10`,
+    });
+    expect(state.phase).toBe('expressionTransforming');
+
+    const restored = restoreGameState(serializeGameState(state), today);
+    expect(restored).toMatchObject({
+      phase: 'guided',
+      stepIndex: 1,
+      answers: [expected],
+    });
   });
 
   it.each([

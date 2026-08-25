@@ -30,10 +30,18 @@ describe('createGuidedPlan', () => {
     }
   });
 
+  it('keeps both distributed partial products as one structural expression', () => {
+    const plan = createGuidedPlan(36, 12, 'left', expression('40-4', 36));
+    expect(formatExpression(plan.workingExpression)).toBe('40 × 12 − 4 × 12');
+    expect(plan.steps.map((step) => step.path)).toEqual([['left'], ['right']]);
+  });
+
   it('regroups a multiplication decomposition', () => {
     const plan = createGuidedPlan(49, 16, 'left', expression('7*7', 49));
     expect(plan.family).toBe('regroup');
     expect(plan.steps.map((step) => step.expected)).toEqual([112, 784]);
+    expect(formatExpression(plan.workingExpression)).toBe('7 × 7 × 16');
+    expect(plan.steps.map((step) => step.path)).toEqual([['right'], []]);
     expect(plan.completion).toEqual({ type: 'answer', value: 784 });
   });
 });

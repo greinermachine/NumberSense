@@ -14,7 +14,15 @@ export type NumberNode = {
 };
 
 export type ExpressionTransformFrame = {
-  kind: 'replace' | 'sign' | 'simplify';
+  kind:
+    | 'answer'
+    | 'replace'
+    | 'sign'
+    | 'reassociate'
+    | 'distribute'
+    | 'reorder'
+    | 'regroup'
+    | 'simplify';
   expression: MathExpression;
   display: string;
 };
@@ -236,7 +244,7 @@ function simplifiablePath(
     : null;
 }
 
-function expressionAtPath(
+export function expressionAtPath(
   expression: MathExpression,
   path: ExpressionPath,
 ): MathExpression | null {
@@ -248,7 +256,7 @@ function expressionAtPath(
   return current;
 }
 
-function replaceExpressionAtPath(
+export function replaceExpressionAtPath(
   expression: MathExpression,
   path: ExpressionPath,
   replacement: MathExpression,
@@ -263,17 +271,170 @@ function replaceExpressionAtPath(
     : binaryExpression(expression.left, expression.operator, replaced);
 }
 
-function hasMultiplicationAncestor(
+export function flattenMultiplication(expression: MathExpression): MathExpression[] {
+  if (expression.type !== 'binary' || expression.operator !== '*') return [expression];
+  return [
+    ...flattenMultiplication(expression.left),
+    ...flattenMultiplication(expression.right),
+  ];
+}
+
+function buildMultiplication(factors: MathExpression[]): MathExpression {
+  const [first, ...rest] = factors;
+  return rest.reduce(
+    (current, factor) => binaryExpression(current, '*', factor),
+    first,
+  );
+}
+
+function multiplicationChainPath(
+  expression: MathExpression,
+  path: ExpressionPath,
+): ExpressionPath | null {
+  let current = expression;
+  let currentPath: ExpressionPath = [];
+  let chainPath: ExpressionPath | null = null;
+  let insideChain = false;
+  for (const branch of path) {
+    if (current.type !== 'binary') return null;
+    if (current.operator === '*') {
+      if (!insideChain) chainPath = currentPath;
+      insideChain = true;
+    } else {
+      chainPath = null;
+      insideChain = false;
+    }
+    current = current[branch];
+    currentPath = [...currentPath, branch];
+  }
+  return chainPath;
+}
+
+function hasNegativeAdditiveContext(
   expression: MathExpression,
   path: ExpressionPath,
 ): boolean {
   let current = expression;
+  let sign = 1;
   for (const branch of path) {
     if (current.type !== 'binary') return false;
-    if (current.operator === '*') return true;
+    if (current.operator === '-' && branch === 'right') sign *= -1;
     current = current[branch];
   }
-  return false;
+  return sign === -1;
+}
+
+function distributeInsertedFactor(
+  replaced: MathExpression,
+  chainPath: ExpressionPath,
+  inserted: MathExpression & { type: 'binary'; operator: '+' | '-' },
+): MathExpression | null {
+  const chain = expressionAtPath(replaced, chainPath);
+  if (!chain) return null;
+  const factors = flattenMultiplication(chain);
+  const insertedIndex = factors.indexOf(inserted);
+  if (insertedIndex < 0) return null;
+  const withBranch = (branch: MathExpression) => {
+    const next = [...factors];
+    next[insertedIndex] = branch;
+    return buildMultiplication(next);
+  };
+  return replaceExpressionAtPath(
+    replaced,
+    chainPath,
+    binaryExpression(
+      withBranch(inserted.left),
+      inserted.operator,
+      withBranch(inserted.right),
+    ),
+  );
+}
+
+function isPowerOfTenFactor(expression: MathExpression) {
+  if (expression.type !== 'number' || expression.value < 10) return false;
+  let value = expression.value;
+  while (value > 1 && value % 10 === 0) value /= 10;
+  return value === 1;
+}
+
+function regroupInsertedFactors(
+  replaced: MathExpression,
+  chainPath: ExpressionPath,
+  inserted: MathExpression & { type: 'binary'; operator: '*' },
+): { frames: ExpressionTransformFrame[]; expression: MathExpression } | null {
+  const chain = expressionAtPath(replaced, chainPath);
+  if (!chain) return null;
+  const factors = flattenMultiplication(chain);
+  if (factors.some((factor) => factor.type !== 'number')) return null;
+  const insertedFactors = flattenMultiplication(inserted);
+  const otherFactors = factors.filter((factor) => !insertedFactors.includes(factor));
+  if (otherFactors.length === 0) return null;
+
+  const primary = insertedFactors.find((factor) => !isPowerOfTenFactor(factor)) ??
+    insertedFactors[0];
+  const scaleFactors = insertedFactors.filter(
+    (factor) => factor !== primary && isPowerOfTenFactor(factor),
+  );
+  const remainingInserted = insertedFactors.filter(
+    (factor) => factor !== primary && !scaleFactors.includes(factor),
+  );
+  const ordered = [
+    primary,
+    otherFactors[0],
+    ...otherFactors.slice(1),
+    ...remainingInserted,
+    ...scaleFactors,
+  ];
+  if (ordered.length < 3) return null;
+
+  const frames: ExpressionTransformFrame[] = [];
+  const reorderedChain = buildMultiplication(ordered);
+  const reordered = replaceExpressionAtPath(replaced, chainPath, reorderedChain);
+  if (!reordered) return null;
+  if (formatExpression(reordered) !== formatExpression(replaced)) {
+    frames.push({
+      kind: 'reorder',
+      expression: reordered,
+      display: formatExpression(reordered),
+    });
+  }
+
+  const pair = binaryExpression(ordered[0], '*', ordered[1]);
+  const rest = ordered.slice(2);
+  const groupedChain = binaryExpression(pair, '*', buildMultiplication(rest));
+  const grouped = replaceExpressionAtPath(reordered, chainPath, groupedChain);
+  if (!grouped) return null;
+  frames.push({
+    kind: 'regroup',
+    expression: grouped,
+    display: formatExpression(grouped, [...chainPath, 'left']),
+  });
+
+  const pairValue = evaluateExpression(pair);
+  const simplifiedChain = buildMultiplication([
+    numberExpression(pairValue),
+    ...rest,
+  ]);
+  const simplified = replaceExpressionAtPath(grouped, chainPath, simplifiedChain);
+  if (!simplified) return null;
+  frames.push({
+    kind: 'simplify',
+    expression: simplified,
+    display: formatExpression(simplified),
+  });
+
+  const settled = replaceExpressionAtPath(
+    simplified,
+    chainPath,
+    numberExpression(evaluateExpression(simplifiedChain)),
+  );
+  if (!settled) return null;
+  frames.push({
+    kind: 'simplify',
+    expression: settled,
+    display: formatExpression(settled),
+  });
+  return { frames, expression: settled };
 }
 
 export function simplifyNext(expression: MathExpression): Simplification | null {
@@ -313,10 +474,44 @@ export function transformNumberNode(
     },
   ];
   let finalExpression = replaced;
+  const chainPath = multiplicationChainPath(expression, path);
 
   if (
-    (decomposition.operator === '+' || decomposition.operator === '-') &&
-    !hasMultiplicationAncestor(expression, path)
+    chainPath &&
+    (decomposition.operator === '+' || decomposition.operator === '-')
+  ) {
+    const distributed = distributeInsertedFactor(
+      replaced,
+      chainPath,
+      inserted as MathExpression & {
+        type: 'binary';
+        operator: '+' | '-';
+      },
+    );
+    if (distributed) {
+      frames.push({
+        kind: 'distribute',
+        expression: distributed,
+        display: formatExpression(distributed),
+      });
+      return { frames, finalExpression: distributed };
+    }
+  }
+
+  if (chainPath && decomposition.operator === '*') {
+    const regrouped = regroupInsertedFactors(
+      replaced,
+      chainPath,
+      inserted as MathExpression & { type: 'binary'; operator: '*' },
+    );
+    if (regrouped) {
+      frames.push(...regrouped.frames);
+      return { frames, finalExpression: regrouped.expression };
+    }
+  }
+
+  if (
+    decomposition.operator === '+' || decomposition.operator === '-'
   ) {
     const normalized = normalizeInsertedAdditive(
       expression,
@@ -325,7 +520,7 @@ export function transformNumberNode(
       replaced,
     );
     frames.push({
-      kind: 'sign',
+      kind: hasNegativeAdditiveContext(expression, path) ? 'sign' : 'reassociate',
       expression: normalized,
       display: formatExpression(normalized),
     });

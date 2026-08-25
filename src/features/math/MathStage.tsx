@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -8,12 +9,15 @@ import {
   type ReactNode,
 } from 'react';
 import type { GameAction, GameState } from '../../game/types';
+import { MAX_ANSWER_EXPRESSION_LENGTH } from '../../math/answerExpression';
 import {
   formatExpression,
+  expressionAtPath,
   listNumberNodes,
   MAX_RECURSIVE_MANIPULATIONS,
   numberAtPath,
   speakExpression,
+  type ExpressionTransformFrame,
 } from '../../math/expression';
 import { createExpressionAssistance } from '../../math/expressionHints';
 import type {
@@ -21,6 +25,7 @@ import type {
   ExpressionPath,
   MathExpression,
 } from '../../math/types';
+import { expressionRewriteFrameDuration } from '../animationTiming';
 import styles from './MathStage.module.css';
 
 type MathState = Extract<
@@ -41,23 +46,69 @@ type Props = { state: MathState; dispatch: Dispatch<GameAction> };
 
 const pathKey = (path: ExpressionPath) => path.join('.');
 
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(() =>
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReduced(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  return reduced;
+}
+
+function transformationAnnotation(kind: ExpressionTransformFrame['kind']) {
+  switch (kind) {
+    case 'answer':
+      return 'Same value.';
+    case 'replace':
+      return 'Same value, inside the expression.';
+    case 'sign':
+      return 'Watch what subtraction does to the signs.';
+    case 'distribute':
+      return 'The factor reaches both parts.';
+    case 'reorder':
+      return 'Choose what to multiply first.';
+    case 'regroup':
+    case 'reassociate':
+      return 'Try these together.';
+    default:
+      return undefined;
+  }
+}
+
 export function MathStage({ state, dispatch }: Props) {
   const problem = state.problems[state.stageIndex];
   const [directAnswer, setDirectAnswer] = useState('');
   const [decomposition, setDecomposition] = useState('');
-  const [guidedAnswer, setGuidedAnswer] = useState('');
-  const guidedInput = useRef<HTMLInputElement>(null);
   const decompositionInput = useRef<HTMLInputElement>(null);
+  const reducedMotion = usePrefersReducedMotion();
   const originalHintVisible = state.hintsUsed[state.stageIndex];
   const decompositionSide = state.phase === 'decomposing' ? state.selectedSide : undefined;
   const decompositionPath = state.phase === 'expressionDecomposing'
     ? pathKey(state.selectedPath)
     : undefined;
   const guidedStep = state.phase === 'guided' ? state.stepIndex : -1;
-  const activeExpression =
-    state.phase === 'expression' || state.phase === 'expressionDecomposing'
+  const activeFullExpression = state.phase === 'guided'
+    ? state.workingExpression
+    : state.phase === 'expression' || state.phase === 'expressionDecomposing'
       ? state.expression
       : undefined;
+  const activeFocusPath: ExpressionPath = state.phase === 'guided'
+    ? state.plan.steps[state.stepIndex].path
+    : state.phase === 'expressionDecomposing' && state.continuation.type === 'guided'
+      ? state.continuation.plan.steps[state.continuation.stepIndex].path
+      : [];
+  const activeExpression = activeFullExpression
+    ? expressionAtPath(activeFullExpression, activeFocusPath) ?? undefined
+    : undefined;
   const activeExpressionLabel = activeExpression
     ? formatExpression(activeExpression)
     : undefined;
@@ -81,10 +132,6 @@ export function MathStage({ state, dispatch }: Props) {
   }, [decompositionPath, decompositionSide, state.phase]);
 
   useEffect(() => {
-    if (state.phase === 'guided') guidedInput.current?.focus();
-  }, [guidedStep, state.phase]);
-
-  useEffect(() => {
     if (state.phase !== 'decomposing' && state.phase !== 'expressionDecomposing') {
       return;
     }
@@ -100,10 +147,35 @@ export function MathStage({ state, dispatch }: Props) {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [dispatch, state.phase]);
 
+  const advanceTransformation = useCallback(() => {
+    if (state.phase === 'expressionTransforming') {
+      dispatch({ type: 'ADVANCE_EXPRESSION_TRANSFORM' });
+    }
+  }, [dispatch, state.phase]);
+
+  useEffect(() => {
+    if (state.phase !== 'expressionTransforming') return;
+    const timeout = window.setTimeout(
+      advanceTransformation,
+      expressionRewriteFrameDuration(state.frames.length, reducedMotion),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [advanceTransformation, reducedMotion, state]);
+
+  useEffect(() => {
+    if (state.phase !== 'expressionTransforming') return;
+    const skipCurrentFrame = (event: KeyboardEvent) => {
+      if (event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      advanceTransformation();
+    };
+    window.addEventListener('keydown', skipCurrentFrame);
+    return () => window.removeEventListener('keydown', skipCurrentFrame);
+  }, [advanceTransformation, state.phase]);
+
   const submitDirect = (event: FormEvent) => {
     event.preventDefault();
-    const answer = Number(directAnswer.trim());
-    if (Number.isInteger(answer)) dispatch({ type: 'SUBMIT_DIRECT', answer });
+    dispatch({ type: 'SUBMIT_DIRECT', answer: directAnswer });
   };
 
   const submitDecomposition = (event: FormEvent) => {
@@ -116,18 +188,6 @@ export function MathStage({ state, dispatch }: Props) {
     });
   };
 
-  const submitGuided = (event: FormEvent) => {
-    event.preventDefault();
-    const answer = Number(guidedAnswer.trim());
-    if (Number.isInteger(answer)) {
-      const isCorrect =
-        state.phase === 'guided' &&
-        answer === state.plan.steps[state.stepIndex].expected;
-      dispatch({ type: 'SUBMIT_GUIDED', answer });
-      if (isCorrect) setGuidedAnswer('');
-    }
-  };
-
   const openDecomposition = (side: 'left' | 'right') => {
     setDecomposition('');
     dispatch({ type: 'OPEN_DECOMPOSITION', side });
@@ -138,11 +198,11 @@ export function MathStage({ state, dispatch }: Props) {
     dispatch({ type: 'OPEN_EXPRESSION_DECOMPOSITION', path });
   };
 
-  const selectedSide = state.phase === 'decomposing' || state.phase === 'guided'
+  const selectedSide = state.phase === 'decomposing'
     ? state.selectedSide
     : undefined;
   const selectedPath = state.phase === 'expressionDecomposing'
-    ? state.selectedPath
+    ? state.selectedPath.slice(activeFocusPath.length)
     : undefined;
   const decompositionTarget = state.phase === 'decomposing'
     ? state.selectedSide === 'left' ? problem.left : problem.right
@@ -155,6 +215,14 @@ export function MathStage({ state, dispatch }: Props) {
       : undefined;
   const transitionFrame = state.phase === 'expressionTransforming'
     ? state.frames[state.frameIndex]
+    : undefined;
+  const transitionAnnotation = transitionFrame
+    ? transformationAnnotation(transitionFrame.kind)
+    : undefined;
+  const transitionAriaLabel = transitionFrame
+    ? transitionFrame.kind === 'answer'
+      ? `Accepted. Same value: ${transitionFrame.display}`
+      : transitionFrame.display
     : undefined;
   const heading = activeExpression
     ? `Solve ${speakExpression(activeExpression)}`
@@ -171,14 +239,13 @@ export function MathStage({ state, dispatch }: Props) {
 
       {(state.phase === 'problem' ||
         state.phase === 'decomposing' ||
-        state.phase === 'guided' ||
         state.phase === 'reflection') && (
         <div className={styles.expression}>
           <Operand
             value={problem.left}
             side="left"
             selected={selectedSide === 'left'}
-            disabled={state.phase === 'guided'}
+            disabled={false}
             onSelect={() => openDecomposition('left')}
           />
           <span className={styles.times} aria-hidden="true">×</span>
@@ -186,7 +253,7 @@ export function MathStage({ state, dispatch }: Props) {
             value={problem.right}
             side="right"
             selected={selectedSide === 'right'}
-            disabled={state.phase === 'guided'}
+            disabled={false}
             onSelect={() => openDecomposition('right')}
           />
         </div>
@@ -209,20 +276,21 @@ export function MathStage({ state, dispatch }: Props) {
       )}
 
       {transitionFrame && state.phase === 'expressionTransforming' && (
-        <div className={styles.transformArea}>
+        <div
+          className={styles.transformArea}
+          data-motion={reducedMotion ? 'reduced' : 'full'}
+          onClick={advanceTransformation}
+        >
           <p className={styles.transformAnnotation}>
-            {transitionFrame.kind === 'replace'
-              ? 'Same value, inside the expression.'
-              : transitionFrame.kind === 'sign'
-                ? 'Watch what subtraction does to the signs.'
-                : 'Now the friendlier part can settle.'}
+            {transitionAnnotation ?? '\u00a0'}
           </p>
           <div
+            key={`${state.frameIndex}-${transitionFrame.kind}-${transitionFrame.display}`}
             className={styles.transformExpression}
             data-kind={transitionFrame.kind}
             role="status"
             aria-live="polite"
-            aria-label={transitionFrame.display}
+            aria-label={transitionAriaLabel}
           >
             {transitionFrame.display.split(' ').map((token, index) => (
               <span
@@ -233,14 +301,9 @@ export function MathStage({ state, dispatch }: Props) {
               </span>
             ))}
           </div>
-          <button
-            className={styles.transformContinue}
-            type="button"
-            onClick={() => dispatch({ type: 'ADVANCE_EXPRESSION_TRANSFORM' })}
-            autoFocus
-          >
-            Continue <span aria-hidden="true">→</span>
-          </button>
+          <p className={styles.srOnly}>
+            This rewrite advances automatically. Press Enter or Space to skip the current step.
+          </p>
         </div>
       )}
 
@@ -275,40 +338,6 @@ export function MathStage({ state, dispatch }: Props) {
           </form>
         )}
 
-      {state.phase === 'guided' && (
-        <div className={styles.guided}>
-          <p className={styles.transformed}>{state.plan.expressionLabel}</p>
-          <div className={styles.steps}>
-            {state.plan.steps.slice(0, state.stepIndex).map((step, index) => (
-              <div className={styles.completedStep} key={step.id}>
-                <span>{step.before}</span><strong>{state.answers[index]}</strong>
-              </div>
-            ))}
-            <form className={styles.activeStep} onSubmit={submitGuided} data-error={Boolean(state.feedback)}>
-              <label htmlFor="guided-answer" className={styles.srOnly}>
-                Complete {state.plan.steps[state.stepIndex].before}
-              </label>
-              <span>{state.plan.steps[state.stepIndex].before}</span>
-              <input
-                ref={guidedInput}
-                id="guided-answer"
-                inputMode="numeric"
-                autoComplete="off"
-                value={guidedAnswer}
-                onChange={(event) => setGuidedAnswer(event.target.value)}
-                aria-describedby={state.feedback ? 'guided-feedback' : undefined}
-              />
-              <button type="submit" aria-label="Check this calculation">→</button>
-            </form>
-          </div>
-          {state.feedback && (
-            <p id="guided-feedback" className={styles.feedback} role="alert">
-              {state.feedback}
-            </p>
-          )}
-        </div>
-      )}
-
       {state.phase === 'reflection' && (
         <div className={styles.reflection}>
           <p className={styles.settled}>{problem.left * problem.right}</p>
@@ -333,8 +362,10 @@ export function MathStage({ state, dispatch }: Props) {
           <div className={styles.answerLine}>
             <input
               id="direct-answer"
-              inputMode="numeric"
+              inputMode="text"
               autoComplete="off"
+              maxLength={MAX_ANSWER_EXPRESSION_LENGTH}
+              spellCheck={false}
               value={directAnswer}
               onChange={(event) => setDirectAnswer(event.target.value)}
             />
@@ -346,11 +377,12 @@ export function MathStage({ state, dispatch }: Props) {
         </form>
       )}
 
-      {state.phase === 'expression' && (
+      {(state.phase === 'expression' || state.phase === 'guided') && (
         <ExpressionAnswerForm
-          key={activeExpressionLabel}
+          key={`${activeExpressionLabel}-${guidedStep}`}
           feedback={state.feedback}
           dispatch={dispatch}
+          action={state.phase === 'guided' ? 'SUBMIT_GUIDED' : 'SUBMIT_EXPRESSION_ANSWER'}
         />
       )}
 
@@ -369,7 +401,8 @@ export function MathStage({ state, dispatch }: Props) {
           {activeExpression && assistance && (
             <div className={styles.expressionHint}>
               <p className={styles.hintText}>{assistance.message}</p>
-              {state.phase === 'expression' && assistance.suggestion && (
+              {(state.phase === 'expression' || state.phase === 'guided') &&
+                assistance.suggestion && (
                 <button
                   className={styles.hintAction}
                   type="button"
@@ -378,7 +411,8 @@ export function MathStage({ state, dispatch }: Props) {
                   Use this way
                 </button>
               )}
-              {state.phase === 'expression' && assistance.rescue && (
+              {(state.phase === 'expression' || state.phase === 'guided') &&
+                assistance.rescue && (
                 <button
                   className={styles.hintAction}
                   type="button"
@@ -425,17 +459,16 @@ function Operand({ value, side, selected, disabled, onSelect }: OperandProps) {
 function ExpressionAnswerForm({
   feedback,
   dispatch,
+  action,
 }: {
   feedback?: string;
   dispatch: Dispatch<GameAction>;
+  action: 'SUBMIT_GUIDED' | 'SUBMIT_EXPRESSION_ANSWER';
 }) {
   const [answer, setAnswer] = useState('');
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const value = Number(answer.trim());
-    if (Number.isInteger(value)) {
-      dispatch({ type: 'SUBMIT_EXPRESSION_ANSWER', answer: value });
-    }
+    dispatch({ type: action, answer });
   };
 
   return (
@@ -444,12 +477,22 @@ function ExpressionAnswerForm({
       <div className={styles.answerLine}>
         <input
           id="expression-answer"
-          inputMode="numeric"
+          inputMode="text"
           autoComplete="off"
+          autoFocus={action === 'SUBMIT_GUIDED'}
+          maxLength={MAX_ANSWER_EXPRESSION_LENGTH}
+          spellCheck={false}
           value={answer}
           onChange={(event) => setAnswer(event.target.value)}
         />
-        <button type="submit" aria-label="Check expression answer">→</button>
+        <button
+          type="submit"
+          aria-label={action === 'SUBMIT_GUIDED'
+            ? 'Check this calculation'
+            : 'Check expression answer'}
+        >
+          →
+        </button>
       </div>
       {feedback && <p className={styles.feedback} role="alert">{feedback}</p>}
     </form>

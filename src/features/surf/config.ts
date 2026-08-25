@@ -20,6 +20,8 @@ export const SURF_TUNING = {
   resetDropDistance: 10.5,
   resetVeilMs: 460,
   goalPadding: 1.6,
+  minimumLandingContactTime: 0.18,
+  landingDrag: 0.14,
   completionDrag: 0.22,
 
   cameraSensitivity: 0.00145,

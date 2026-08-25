@@ -41,10 +41,12 @@ export type GuidedStep = {
   after?: string;
   expected: number;
   purpose: 'partial' | 'combine';
+  path: ExpressionPath;
 };
 
 export type GuidedPlan = {
   expressionLabel: string;
+  workingExpression: MathExpression;
   steps: GuidedStep[];
   family: 'distribute' | 'regroup';
   completion:

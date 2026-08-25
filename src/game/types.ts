@@ -38,6 +38,23 @@ export type GameBase = {
   results: ProblemResult[];
 };
 
+export type GuidedProgress = {
+  selectedSide: OperandSide;
+  decomposition: ParsedDecomposition;
+  plan: GuidedPlan;
+  stepIndex: number;
+  answers: number[];
+};
+
+export type ExpressionContinuation =
+  | { type: 'problem' }
+  | ({ type: 'guided' } & GuidedProgress);
+
+export type ExpressionTransformContinuation =
+  | ExpressionContinuation
+  | { type: 'direct' }
+  | { type: 'answer'; solvedBy: SolveMethod };
+
 export type GameState =
   | (GameBase & { phase: 'intro' })
   | (GameBase & { phase: 'problem'; feedback?: string })
@@ -47,13 +64,9 @@ export type GameState =
       afterDirect: boolean;
       inputError?: string;
     })
-  | (GameBase & {
+  | (GameBase & GuidedProgress & {
       phase: 'guided';
-      selectedSide: OperandSide;
-      expression: ParsedDecomposition;
-      plan: GuidedPlan;
-      stepIndex: number;
-      answers: number[];
+      workingExpression: MathExpression;
       feedback?: string;
     })
   | (GameBase & {
@@ -65,6 +78,7 @@ export type GameState =
       phase: 'expressionDecomposing';
       expression: MathExpression;
       selectedPath: ExpressionPath;
+      continuation: ExpressionContinuation;
       inputError?: string;
     })
   | (GameBase & {
@@ -72,6 +86,7 @@ export type GameState =
       frames: ExpressionTransformFrame[];
       frameIndex: number;
       finalExpression: MathExpression;
+      continuation: ExpressionTransformContinuation;
     })
   | (GameBase & { phase: 'reflection' })
   | (GameBase & {
@@ -92,10 +107,10 @@ export type GameAction =
   | { type: 'OPEN_DECOMPOSITION'; side: OperandSide }
   | { type: 'CLOSE_DECOMPOSITION' }
   | { type: 'SUBMIT_DECOMPOSITION'; input: string }
-  | { type: 'SUBMIT_DIRECT'; answer: number }
+  | { type: 'SUBMIT_DIRECT'; answer: string | number }
   | { type: 'USE_HINT' }
-  | { type: 'SUBMIT_GUIDED'; answer: number }
-  | { type: 'SUBMIT_EXPRESSION_ANSWER'; answer: number }
+  | { type: 'SUBMIT_GUIDED'; answer: string | number }
+  | { type: 'SUBMIT_EXPRESSION_ANSWER'; answer: string | number }
   | { type: 'OPEN_EXPRESSION_DECOMPOSITION'; path: ExpressionPath }
   | { type: 'CLOSE_EXPRESSION_DECOMPOSITION' }
   | { type: 'SUBMIT_EXPRESSION_DECOMPOSITION'; input: string }

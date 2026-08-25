@@ -4,6 +4,7 @@ export type SurfContactState = 'air' | 'grace' | 'ramp';
 
 export type RampDefinition = {
   id: string;
+  kind: 'bank' | 'landing';
   startZ: number;
   endZ: number;
   centerX: number;
@@ -49,7 +50,9 @@ export type SurfCourseDefinition = {
   ramps: readonly RampDefinition[];
   checkpoints: readonly SurfCheckpoint[];
   landmarks: readonly SurfLandmark[];
+  completionDelayMs: number;
   goal: {
+    rampId: string;
     position: Vector3;
     radius: number;
   };
@@ -67,6 +70,7 @@ export type SurfPlayerState = {
   contactRampId?: string;
   contactGraceRemaining: number;
   checkpointIndex: number;
+  landingContactTime: number;
   resets: number;
   complete: boolean;
   elapsed: number;
@@ -88,5 +92,7 @@ export type SurfDebugStats = {
   fps: number;
   simulationSteps: number;
   checkpointIndex: number;
+  contactRampId?: string;
+  landingContactTime: number;
   resets: number;
 };

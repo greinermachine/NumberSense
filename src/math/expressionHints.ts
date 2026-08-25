@@ -1,10 +1,11 @@
-import { formatExpression, listNumberNodes, simplifyNext } from './expression';
-import type { ExpressionPath, MathExpression } from './types';
+import { formatExpression, simplifyNext } from './expression';
+import type { BinaryOperator, ExpressionPath, MathExpression } from './types';
 
 export type FriendlySuggestion = {
   path: ExpressionPath;
   value: number;
-  nearby: number;
+  kind: 'nearby' | 'factor';
+  nearby?: number;
   input: string;
   display: string;
 };
@@ -30,12 +31,14 @@ function suggestValue(value: number): Omit<FriendlySuggestion, 'path'> | null {
       return nearby > value
         ? {
             value,
+            kind: 'nearby' as const,
             nearby,
             input: `${nearby}-${difference}`,
             display: `${value} = ${nearby} − ${difference}`,
           }
         : {
             value,
+            kind: 'nearby' as const,
             nearby,
             input: `${nearby}+${difference}`,
             display: `${value} = ${nearby} + ${difference}`,
@@ -46,6 +49,7 @@ function suggestValue(value: number): Omit<FriendlySuggestion, 'path'> | null {
     const difference = 10 - value;
     return {
       value,
+      kind: 'nearby',
       nearby: 10,
       input: `10-${difference}`,
       display: `${value} = 10 − ${difference}`,
@@ -54,17 +58,50 @@ function suggestValue(value: number): Omit<FriendlySuggestion, 'path'> | null {
   return null;
 }
 
+function suggestFactor(value: number): Omit<FriendlySuggestion, 'path'> | null {
+  if (!Number.isSafeInteger(value) || value < 20 || value % 10 !== 0) return null;
+  const factor = value / 10;
+  if (!Number.isSafeInteger(factor) || factor <= 1) return null;
+  return {
+    value,
+    kind: 'factor',
+    input: `${factor}*10`,
+    display: `${value} = ${factor} × 10`,
+  };
+}
+
+function collectSuggestions(
+  expression: MathExpression,
+  path: ExpressionPath,
+  parentOperator: BinaryOperator | undefined,
+  suggestions: FriendlySuggestion[],
+) {
+  if (expression.type === 'number') {
+    const suggestion = parentOperator === '*'
+      ? suggestFactor(expression.value) ?? suggestValue(expression.value)
+      : suggestValue(expression.value);
+    if (suggestion) suggestions.push({ ...suggestion, path });
+    return;
+  }
+  collectSuggestions(expression.left, [...path, 'left'], expression.operator, suggestions);
+  collectSuggestions(expression.right, [...path, 'right'], expression.operator, suggestions);
+}
+
+function containsMultiplication(expression: MathExpression): boolean {
+  return expression.type === 'binary' &&
+    (expression.operator === '*' ||
+      containsMultiplication(expression.left) ||
+      containsMultiplication(expression.right));
+}
+
 export function findFriendlySuggestion(
   expression: MathExpression,
 ): FriendlySuggestion | undefined {
-  const candidates = listNumberNodes(expression)
-    .map((node) => {
-      const suggestion = suggestValue(node.value);
-      return suggestion ? { ...suggestion, path: node.path } : null;
-    })
-    .filter((item): item is FriendlySuggestion => item !== null);
+  const candidates: FriendlySuggestion[] = [];
+  collectSuggestions(expression, [], undefined, candidates);
 
   return candidates.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'factor' ? -1 : 1;
     const scaleA = a.value >= 10 ? 1 : 0;
     const scaleB = b.value >= 10 ? 1 : 0;
     if (scaleA !== scaleB) return scaleB - scaleA;
@@ -85,6 +122,7 @@ export function createExpressionAssistance(
   if (level === 0 && !depthReached) return undefined;
 
   const suggestion = depthReached ? undefined : findFriendlySuggestion(expression);
+  const multiplication = containsMultiplication(expression);
   if (depthReached || level >= 5) {
     const rescue = simplifyNext(expression);
     return {
@@ -104,7 +142,12 @@ export function createExpressionAssistance(
   }
 
   if (level === 1) {
-    return { level, message: 'Can either number become friendlier?' };
+    return {
+      level,
+      message: multiplication
+        ? 'Can either number become easier pieces?'
+        : 'Can either number become friendlier?',
+    };
   }
   if (level === 2) {
     return {
@@ -116,8 +159,12 @@ export function createExpressionAssistance(
     return {
       level,
       message: suggestion
-        ? `${suggestion.value} is close to ${suggestion.nearby}.`
-        : 'Try changing one of the numbers.',
+        ? suggestion.kind === 'factor'
+          ? `${suggestion.value} has a 10 hiding inside it.`
+          : `${suggestion.value} is close to ${suggestion.nearby}.`
+        : multiplication
+          ? 'Try changing one of the factors.'
+          : 'Try changing one of the numbers.',
     };
   }
   return suggestion

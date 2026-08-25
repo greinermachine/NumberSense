@@ -236,6 +236,7 @@ function copyPlayerState(target: SurfPlayerState, source: SurfPlayerState) {
   target.contactRampId = source.contactRampId;
   target.contactGraceRemaining = source.contactGraceRemaining;
   target.checkpointIndex = source.checkpointIndex;
+  target.landingContactTime = source.landingContactTime;
   target.resets = source.resets;
   target.complete = source.complete;
   target.elapsed = source.elapsed;
@@ -283,6 +284,7 @@ export function createSurfPlayer(
     contactRampId: ramp?.id,
     contactGraceRemaining: ramp ? SURF_TUNING.contactGraceTime : 0,
     checkpointIndex: safeCheckpointIndex,
+    landingContactTime: 0,
     resets,
     complete: false,
     elapsed: 0,
@@ -525,13 +527,24 @@ function stepSurfPlayerInPlace(
   resolveSurfaceContact(state, course, scratch.previousPosition, delta, scratch);
   updateCheckpoint(state, course);
 
+  const settledOnLanding =
+    state.contactState === 'ramp' && state.contactRampId === course.goal.rampId;
+  if (settledOnLanding) {
+    state.landingContactTime += delta;
+    state.velocity.multiplyScalar(Math.exp(-SURF_TUNING.landingDrag * delta));
+  } else {
+    state.landingContactTime = 0;
+  }
+
   const transverseDistance = Math.hypot(
     state.position.x - course.goal.position.x,
     state.position.y - course.goal.position.y,
   );
   if (
     state.position.z >= course.goal.position.z - SURF_TUNING.goalPadding &&
-    transverseDistance <= course.goal.radius + SURF_TUNING.goalPadding
+    transverseDistance <= course.goal.radius + SURF_TUNING.goalPadding &&
+    settledOnLanding &&
+    state.landingContactTime >= SURF_TUNING.minimumLandingContactTime
   ) {
     state.complete = true;
     return;

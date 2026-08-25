@@ -2,16 +2,33 @@ import { selectAlternateView } from '../data/alternateViews';
 import { getDailyNumber, selectDailyProblems, toDailyKey } from '../data/daily';
 import { canonicalDecompositionKey, parseDecomposition } from '../math/decomposition';
 import {
+  parseAnswerExpression,
+  type ParsedAnswerExpression,
+} from '../math/answerExpression';
+import {
   evaluateExpression,
+  expressionAtPath,
+  formatExpression,
   MAX_RECURSIVE_MANIPULATIONS,
+  numberExpression,
   numberAtPath,
+  replaceExpressionAtPath,
   simplifyNext,
   transformNumberNode,
 } from '../math/expression';
 import { findFriendlySuggestion } from '../math/expressionHints';
 import { createGuidedPlan } from '../math/guidedSolving';
 import type { ExpressionPath, MathExpression } from '../math/types';
-import type { Discovery, GameAction, GameBase, GameState, SolveMethod } from './types';
+import type {
+  Discovery,
+  ExpressionContinuation,
+  ExpressionTransformContinuation,
+  GameAction,
+  GameBase,
+  GameState,
+  GuidedProgress,
+  SolveMethod,
+} from './types';
 
 export function createInitialGameState(date = new Date()): GameState {
   const dateKey = toDailyKey(date);
@@ -64,6 +81,18 @@ function withDiscovery(state: GameBase, discovery: Discovery): GameBase {
 }
 
 function completeMath(state: GameBase, solvedBy: SolveMethod): GameState {
+  const completed = withCompletedResult(state, solvedBy);
+  const problem = currentProblem(state);
+
+  return {
+    ...completed,
+    phase: 'alternateReveal',
+    alternate: selectAlternateView(problem, state.discoveries[state.stageIndex]),
+    solvedBy,
+  };
+}
+
+function withCompletedResult(state: GameBase, solvedBy: SolveMethod): GameBase {
   const base = baseState(state);
   const problem = currentProblem(state);
   const results = state.results.some((result) => result.problemId === problem.id)
@@ -81,13 +110,7 @@ function completeMath(state: GameBase, solvedBy: SolveMethod): GameState {
         },
       ];
 
-  return {
-    ...base,
-    phase: 'alternateReveal',
-    results,
-    alternate: selectAlternateView(problem, state.discoveries[state.stageIndex]),
-    solvedBy,
-  };
+  return { ...base, results };
 }
 
 function incrementAt(values: number[], index: number): number[] {
@@ -118,11 +141,134 @@ function withManipulation(state: GameBase): GameBase {
   };
 }
 
+type GuidedContinuation = Extract<ExpressionContinuation, { type: 'guided' }>;
+
+function toGuidedContinuation(progress: GuidedProgress): GuidedContinuation {
+  return {
+    type: 'guided',
+    selectedSide: progress.selectedSide,
+    decomposition: progress.decomposition,
+    plan: progress.plan,
+    stepIndex: progress.stepIndex,
+    answers: progress.answers,
+  };
+}
+
+function focusPath(continuation: ExpressionContinuation): ExpressionPath {
+  return continuation.type === 'guided'
+    ? continuation.plan.steps[continuation.stepIndex].path
+    : [];
+}
+
+function resumeExpression(
+  state: GameBase,
+  expression: MathExpression,
+  continuation: ExpressionContinuation,
+  feedback?: string,
+): GameState {
+  if (continuation.type === 'problem') {
+    return {
+      ...baseState(state),
+      phase: 'expression',
+      expression,
+      ...(feedback ? { feedback } : {}),
+    };
+  }
+  return {
+    ...baseState(state),
+    phase: 'guided',
+    selectedSide: continuation.selectedSide,
+    decomposition: continuation.decomposition,
+    plan: continuation.plan,
+    stepIndex: continuation.stepIndex,
+    answers: continuation.answers,
+    workingExpression: expression,
+    ...(feedback ? { feedback } : {}),
+  };
+}
+
+function resolveGuidedAnswer(
+  state: GameBase,
+  continuation: GuidedContinuation,
+  workingExpression: MathExpression,
+  answer: number,
+): GameState {
+  const step = continuation.plan.steps[continuation.stepIndex];
+  if (answer !== step.expected) {
+    return {
+      ...resumeExpression(state, workingExpression, continuation),
+      feedback: 'That piece needs another look. Stay with this step.',
+      ...withAttempt(state),
+    } as GameState;
+  }
+  const updated = replaceExpressionAtPath(
+    workingExpression,
+    step.path,
+    { type: 'number', value: answer },
+  );
+  if (!updated) return resumeExpression(state, workingExpression, continuation);
+  const answers = [...continuation.answers, answer];
+  if (continuation.stepIndex < continuation.plan.steps.length - 1) {
+    return {
+      ...baseState(state),
+      phase: 'guided',
+      selectedSide: continuation.selectedSide,
+      decomposition: continuation.decomposition,
+      plan: continuation.plan,
+      stepIndex: continuation.stepIndex + 1,
+      answers,
+      workingExpression: updated,
+    };
+  }
+  if (continuation.plan.completion.type === 'expression') {
+    return {
+      ...baseState(state),
+      phase: 'expression',
+      expression: updated,
+    };
+  }
+  return completeMath(state, 'guided');
+}
+
+function answerInput(rawAnswer: string | number) {
+  return parseAnswerExpression(String(rawAnswer));
+}
+
+function beginAnswerResolution(
+  state: GameBase,
+  answer: ParsedAnswerExpression,
+  expected: number,
+  finalExpression: MathExpression,
+  continuation: ExpressionTransformContinuation,
+): GameState {
+  const resolved = numberExpression(expected);
+  return {
+    ...baseState(state),
+    phase: 'expressionTransforming',
+    frames: [
+      {
+        kind: 'answer',
+        expression: answer.expression,
+        display: answer.normalized,
+      },
+      {
+        kind: 'simplify',
+        expression: resolved,
+        display: formatExpression(resolved),
+      },
+    ],
+    frameIndex: 0,
+    finalExpression,
+    continuation,
+  };
+}
+
 function beginExpressionTransformation(
   state: GameBase,
   expression: MathExpression,
   path: ExpressionPath,
   input: string,
+  continuation: ExpressionContinuation,
 ): GameState | null {
   const operand = numberAtPath(expression, path);
   if (operand === null) return null;
@@ -136,6 +282,7 @@ function beginExpressionTransformation(
     frames: transformation.frames,
     frameIndex: 0,
     finalExpression: transformation.finalExpression,
+    continuation,
   };
 }
 
@@ -175,31 +322,47 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       });
       if (state.afterDirect) return completeMath(discovered, 'direct');
 
+      const plan = createGuidedPlan(
+        problem.left,
+        problem.right,
+        state.selectedSide,
+        validation.expression,
+      );
       return {
         ...discovered,
         phase: 'guided',
         selectedSide: state.selectedSide,
-        expression: validation.expression,
-        plan: createGuidedPlan(
-          problem.left,
-          problem.right,
-          state.selectedSide,
-          validation.expression,
-        ),
+        decomposition: validation.expression,
+        plan,
         stepIndex: 0,
         answers: [],
+        workingExpression: plan.workingExpression,
       };
     }
 
     case 'SUBMIT_DIRECT': {
       if (state.phase !== 'problem') return state;
       const problem = currentProblem(state);
-      if (action.answer !== problem.left * problem.right) {
+      const validation = answerInput(action.answer);
+      if (!validation.ok) {
+        return { ...state, feedback: validation.message };
+      }
+      const expected = problem.left * problem.right;
+      if (validation.answer.value !== expected) {
         return {
           ...withAttempt(state),
           phase: 'problem',
           feedback: 'Not quite. Your work is still here.',
         };
+      }
+      if (!validation.answer.isPlainInteger) {
+        return beginAnswerResolution(
+          state,
+          validation.answer,
+          expected,
+          numberExpression(expected),
+          { type: 'direct' },
+        );
       }
       return { ...baseState(state), phase: 'reflection' };
     }
@@ -219,76 +382,125 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'SUBMIT_GUIDED': {
       if (state.phase !== 'guided') return state;
-      const step = state.plan.steps[state.stepIndex];
-      if (action.answer !== step.expected) {
-        return {
-          ...state,
-          ...withAttempt(state),
-          feedback: 'That piece needs another look. Stay with this step.',
-        };
+      const validation = answerInput(action.answer);
+      if (!validation.ok) {
+        return { ...state, feedback: validation.message };
       }
-      const answers = [...state.answers, action.answer];
-      if (state.stepIndex < state.plan.steps.length - 1) {
-        return { ...state, stepIndex: state.stepIndex + 1, answers, feedback: undefined };
+      const continuation = toGuidedContinuation(state);
+      const step = continuation.plan.steps[continuation.stepIndex];
+      if (validation.answer.value !== step.expected) {
+        return resolveGuidedAnswer(
+          state,
+          continuation,
+          state.workingExpression,
+          validation.answer.value,
+        );
       }
-      if (state.plan.completion.type === 'expression') {
-        return {
-          ...baseState(state),
-          phase: 'expression',
-          expression: state.plan.completion.expression,
-        };
+      if (!validation.answer.isPlainInteger) {
+        const updated = replaceExpressionAtPath(
+          state.workingExpression,
+          step.path,
+          numberExpression(step.expected),
+        );
+        if (!updated) return state;
+        if (
+          continuation.stepIndex === continuation.plan.steps.length - 1 &&
+          continuation.plan.completion.type === 'answer'
+        ) {
+          const expected = continuation.plan.completion.value;
+          return beginAnswerResolution(
+            withCompletedResult(state, 'guided'),
+            validation.answer,
+            expected,
+            numberExpression(expected),
+            { type: 'answer', solvedBy: 'guided' },
+          );
+        }
+        return beginAnswerResolution(
+          state,
+          validation.answer,
+          step.expected,
+          updated,
+          continuation,
+        );
       }
-      return completeMath({ ...state, answers } as GameState, 'guided');
+      return resolveGuidedAnswer(
+        state,
+        continuation,
+        state.workingExpression,
+        validation.answer.value,
+      );
     }
 
-    case 'SUBMIT_EXPRESSION_ANSWER':
+    case 'SUBMIT_EXPRESSION_ANSWER': {
       if (state.phase !== 'expression') return state;
-      if (action.answer !== evaluateExpression(state.expression)) {
+      const validation = answerInput(action.answer);
+      if (!validation.ok) {
+        return { ...state, feedback: validation.message };
+      }
+      const expected = evaluateExpression(state.expression);
+      if (validation.answer.value !== expected) {
         return {
           ...state,
           ...withAttempt(state),
           feedback: 'Not quite. This expression stays right here.',
         };
       }
+      if (!validation.answer.isPlainInteger) {
+        return beginAnswerResolution(
+          withCompletedResult(state, 'guided'),
+          validation.answer,
+          expected,
+          numberExpression(expected),
+          { type: 'answer', solvedBy: 'guided' },
+        );
+      }
       return completeMath(state, 'guided');
+    }
 
     case 'OPEN_EXPRESSION_DECOMPOSITION': {
-      if (state.phase !== 'expression' && state.phase !== 'expressionDecomposing') {
+      let expression: MathExpression;
+      let continuation: ExpressionContinuation;
+      if (state.phase === 'guided') {
+        expression = state.workingExpression;
+        continuation = toGuidedContinuation(state);
+      } else if (state.phase === 'expression') {
+        expression = state.expression;
+        continuation = { type: 'problem' };
+      } else if (state.phase === 'expressionDecomposing') {
+        expression = state.expression;
+        continuation = state.continuation;
+      } else {
         return state;
       }
-      if (numberAtPath(state.expression, action.path) === null) return state;
+      const selectedPath = [...focusPath(continuation), ...action.path];
+      if (numberAtPath(expression, selectedPath) === null) return state;
       if (
         state.manipulationCounts[state.stageIndex] >= MAX_RECURSIVE_MANIPULATIONS
       ) {
         const hintCounts = state.hintCounts.map((count, index) =>
           index === state.stageIndex ? Math.max(5, count) : count,
         );
-        return {
+        return resumeExpression({
           ...baseState(state),
-          phase: 'expression',
-          expression: state.expression,
-          feedback: 'This one has turned enough. Take the next step with me.',
           hintsUsed: state.hintsUsed.map((used, index) =>
             index === state.stageIndex ? true : used,
           ),
           hintCounts,
-        };
+        }, expression, continuation, 'This one has turned enough. Take the next step with me.');
       }
       return {
         ...baseState(state),
         phase: 'expressionDecomposing',
-        expression: state.expression,
-        selectedPath: action.path,
+        expression,
+        selectedPath,
+        continuation,
       };
     }
 
     case 'CLOSE_EXPRESSION_DECOMPOSITION':
       return state.phase === 'expressionDecomposing'
-        ? {
-            ...baseState(state),
-            phase: 'expression',
-            expression: state.expression,
-          }
+        ? resumeExpression(state, state.expression, state.continuation)
         : state;
 
     case 'SUBMIT_EXPRESSION_DECOMPOSITION': {
@@ -311,6 +523,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         frames: transformation.frames,
         frameIndex: 0,
         finalExpression: transformation.finalExpression,
+        continuation: state.continuation,
       };
     }
 
@@ -319,45 +532,97 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.frameIndex < state.frames.length - 1) {
         return { ...state, frameIndex: state.frameIndex + 1 };
       }
+      if (state.continuation.type === 'direct') {
+        return { ...baseState(state), phase: 'reflection' };
+      }
+      if (state.continuation.type === 'answer') {
+        return completeMath(state, state.continuation.solvedBy);
+      }
+      if (state.continuation.type === 'guided') {
+        const target = expressionAtPath(
+          state.finalExpression,
+          focusPath(state.continuation),
+        );
+        if (target?.type === 'number') {
+          return resolveGuidedAnswer(
+            state,
+            state.continuation,
+            state.finalExpression,
+            target.value,
+          );
+        }
+        return resumeExpression(
+          state,
+          state.finalExpression,
+          state.continuation,
+        );
+      }
       if (state.finalExpression.type === 'number') {
         return completeMath(state, 'guided');
       }
-      return {
-        ...baseState(state),
-        phase: 'expression',
-        expression: state.finalExpression,
-      };
+      return resumeExpression(state, state.finalExpression, state.continuation);
 
     case 'APPLY_EXPRESSION_SUGGESTION': {
-      if (state.phase !== 'expression') return state;
+      if (state.phase !== 'expression' && state.phase !== 'guided') return state;
       if (
         state.manipulationCounts[state.stageIndex] >= MAX_RECURSIVE_MANIPULATIONS
       ) {
         return state;
       }
-      const suggestion = findFriendlySuggestion(state.expression);
+      const expression = state.phase === 'guided'
+        ? state.workingExpression
+        : state.expression;
+      const continuation: ExpressionContinuation = state.phase === 'guided'
+        ? toGuidedContinuation(state)
+        : { type: 'problem' };
+      const focused = expressionAtPath(expression, focusPath(continuation));
+      if (!focused) return state;
+      const suggestion = findFriendlySuggestion(focused);
       if (!suggestion) return state;
       return beginExpressionTransformation(
         state,
-        state.expression,
-        suggestion.path,
+        expression,
+        [...focusPath(continuation), ...suggestion.path],
         suggestion.input,
+        continuation,
       ) ?? state;
     }
 
     case 'ACCEPT_EXPRESSION_RESCUE': {
-      if (state.phase !== 'expression') return state;
-      const simplification = simplifyNext(state.expression);
+      if (state.phase !== 'expression' && state.phase !== 'guided') return state;
+      const expression = state.phase === 'guided'
+        ? state.workingExpression
+        : state.expression;
+      const continuation: ExpressionContinuation = state.phase === 'guided'
+        ? toGuidedContinuation(state)
+        : { type: 'problem' };
+      const currentFocusPath = focusPath(continuation);
+      const focused = expressionAtPath(expression, currentFocusPath);
+      if (!focused) return state;
+      const simplification = simplifyNext(focused);
       if (!simplification) return state;
       const assisted = withHint(state);
-      if (simplification.expression.type === 'number') {
+      const updated = replaceExpressionAtPath(
+        expression,
+        currentFocusPath,
+        simplification.expression,
+      );
+      if (!updated) return state;
+      if (
+        continuation.type === 'guided' &&
+        simplification.expression.type === 'number'
+      ) {
+        return resolveGuidedAnswer(
+          assisted,
+          continuation,
+          updated,
+          simplification.expression.value,
+        );
+      }
+      if (continuation.type === 'problem' && updated.type === 'number') {
         return completeMath(assisted, 'guided');
       }
-      return {
-        ...assisted,
-        phase: 'expression',
-        expression: simplification.expression,
-      };
+      return resumeExpression(assisted, updated, continuation);
     }
 
     case 'JUST_KNEW':

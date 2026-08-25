@@ -37,7 +37,7 @@ describe('createThoughtSequence', () => {
       '54 × 19 = 1026',
       '19 = 20 − 1',
     ]);
-    expect(steps[0].autoAdvanceMs).toBe(700);
+    expect(steps[0].autoAdvanceMs).toBe(1_400);
     expect(steps[1]).toMatchObject({ emphasisSide: 'right', annotation: 'I looked over here.' });
   });
 

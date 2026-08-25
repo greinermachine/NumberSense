@@ -191,17 +191,19 @@
 
 .transformExpression span[data-sign='true'] {
   color: var(--color-accent-strong);
-  animation: sign-settle 520ms var(--ease-out);
+  animation: sign-settle var(--motion-normal) var(--ease-out);
 }
 
-.transformContinue {
-  margin-top: var(--space-6);
-  padding: 0.72rem 1.15rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
+.transformExpression[data-kind='reorder'] span:nth-child(odd) {
+  animation: factor-shift-left var(--motion-normal) var(--ease-out);
+}
+
+.transformExpression[data-kind='reorder'] span:nth-child(even) {
+  animation: factor-shift-right var(--motion-normal) var(--ease-out);
+}
+
+.transformExpression[data-kind='regroup'] span:nth-child(-n + 3) {
+  animation: factor-group var(--motion-normal) var(--ease-out);
 }
 
 .direct { width: min(100%, 14rem); margin-top: var(--space-7); }
@@ -246,6 +248,10 @@
 @keyframes nudge { 0%, 100% { transform: translateX(0); } 35% { transform: translateX(-0.22rem); } 70% { transform: translateX(0.18rem); } }
 @keyframes expression-settle { from { opacity: 0; transform: translateY(0.35rem); } }
 @keyframes sign-settle { 0% { opacity: 0.25; transform: translateY(-0.16em); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes factor-shift-left { from { opacity: 0.35; transform: translateX(0.38em); } }
+@keyframes factor-shift-right { from { opacity: 0.35; transform: translateX(-0.38em); } }
+@keyframes factor-group { from { transform: scale(0.96); } }
+@keyframes transform-crossfade { from { opacity: 0.35; } to { opacity: 1; } }
 
 @media (max-width: 38rem) {
   .stage { min-height: calc(100svh - 8rem); padding: var(--space-5) 0; }
@@ -261,5 +267,12 @@
 @media (prefers-reduced-motion: reduce) {
   .decomposition { transform: none; }
   .activeStep[data-error='true'] input, .direct[data-error='true'] input { animation: none; border-width: 2px; }
-  .transformExpression, .transformExpression span[data-sign='true'] { animation: none; }
+  .transformArea[data-motion='reduced'] .transformExpression {
+    animation: transform-crossfade 120ms ease-out both !important;
+    transform: none !important;
+  }
+  .transformArea[data-motion='reduced'] .transformExpression span {
+    animation: none !important;
+    transform: none !important;
+  }
 }

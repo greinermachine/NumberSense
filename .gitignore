@@ -8,13 +8,13 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
-docs/
+
 # Tool caches
 .vite/
 .vitest/
 *.tsbuildinfo
 .eslintcache
-
+/docs 
 # Logs
 logs/
 *.log

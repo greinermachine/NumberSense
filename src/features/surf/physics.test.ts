@@ -19,6 +19,13 @@ function rideWithKeyboardSteering(courseIndex: number) {
   let state = createSurfPlayer(course);
   let accumulator = 0;
   let furthestZ = state.position.z;
+  let furthestSample = {
+    position: state.position.toArray(),
+    velocity: state.velocity.toArray(),
+    contactState: state.contactState,
+    contactRampId: state.contactRampId,
+    resets: state.resets,
+  };
 
   for (let frame = 0; frame < 60 * 20 && !state.complete; frame += 1) {
     const currentIndex = Math.max(
@@ -65,10 +72,19 @@ function rideWithKeyboardSteering(courseIndex: number) {
     );
     state = advanced.state;
     accumulator = advanced.accumulator;
-    furthestZ = Math.max(furthestZ, state.position.z);
+    if (state.position.z > furthestZ) {
+      furthestZ = state.position.z;
+      furthestSample = {
+        position: state.position.toArray(),
+        velocity: state.velocity.toArray(),
+        contactState: state.contactState,
+        contactRampId: state.contactRampId,
+        resets: state.resets,
+      };
+    }
   }
 
-  return { state, furthestZ };
+  return { state, furthestZ, furthestSample };
 }
 
 describe('surf physics', () => {
@@ -126,17 +142,70 @@ describe('surf physics', () => {
     expect(next.position.distanceTo(course.spawn.position)).toBe(0);
   });
 
-  it('recognizes the configured goal', () => {
+  it('requires stable contact with the flat landing before recognizing the goal', () => {
     const course = getSurfCourse(0);
-    const state = createSurfPlayer(course);
-    state.position.copy(course.goal.position);
-    const next = stepSurfPlayer(
-      state,
+    const airborne = createSurfPlayer(course);
+    airborne.position.copy(course.goal.position).add(new Vector3(0, 4, 0));
+    airborne.velocity.set(0, 0, 12);
+    airborne.contactState = 'air';
+    airborne.contactRampId = undefined;
+    const crossing = stepSurfPlayer(
+      airborne,
       { strafe: 0, lookDeltaX: 0, lookDeltaY: 0 },
       course,
       SURF_TUNING.fixedStep,
     );
-    expect(next.complete).toBe(true);
+    expect(crossing.complete).toBe(false);
+
+    const landed = createSurfPlayer(course);
+    landed.position.copy(course.goal.position);
+    landed.velocity.set(0, 0, 12);
+    landed.contactState = 'ramp';
+    landed.contactRampId = course.goal.rampId;
+    landed.contactNormal.set(0, 1, 0);
+    landed.landingContactTime = SURF_TUNING.minimumLandingContactTime;
+    const completed = stepSurfPlayer(
+      landed,
+      { strafe: 0, lookDeltaX: 0, lookDeltaY: 0 },
+      course,
+      SURF_TUNING.fixedStep,
+    );
+    expect(completed.complete).toBe(true);
+    expect(completed.contactRampId).toBe(course.goal.rampId);
+  });
+
+  it('coasts on a flat landing without bouncing or zeroing momentum', () => {
+    const course = getSurfCourse(0);
+    const landing = course.ramps.find((ramp) => ramp.id === course.goal.rampId)!;
+    const startZ = landing.startZ + 4;
+    const surface = sampleRampSurface(landing, landing.centerX, startZ)!;
+    let state = createSurfPlayer(course);
+    state.position.set(
+      landing.centerX,
+      surface.height + SURF_TUNING.playerHeight,
+      startZ,
+    );
+    state.velocity.set(0, 0, 18);
+    state.contactState = 'ramp';
+    state.contactRampId = landing.id;
+    state.contactNormal.set(0, 1, 0);
+
+    for (let step = 0; step < 60; step += 1) {
+      state = stepSurfPlayer(
+        state,
+        { strafe: 0, lookDeltaX: 0, lookDeltaY: 0 },
+        course,
+        SURF_TUNING.fixedStep,
+      );
+    }
+
+    expect(state.contactState).toBe('ramp');
+    expect(state.contactRampId).toBe(landing.id);
+    expect(state.velocity.y).toBeCloseTo(0);
+    expect(state.velocity.z).toBeLessThan(18);
+    expect(state.velocity.z).toBeGreaterThan(16);
+    expect(state.position.z).toBeLessThan(course.goal.position.z);
+    expect(state.complete).toBe(false);
   });
 
   it('maps A/D to visual left/right at yaw zero', () => {
@@ -457,11 +526,35 @@ describe('surf physics', () => {
   it.each(SURF_COURSES.map((course, index) => [index, course.id] as const))(
     'keeps course %i (%s) reachable with keyboard-like steering',
     (courseIndex) => {
-      const { state, furthestZ } = rideWithKeyboardSteering(courseIndex);
-      expect(furthestZ).toBeGreaterThan(getSurfCourse(courseIndex).goal.position.z - 8);
+      const { state, furthestZ, furthestSample } = rideWithKeyboardSteering(courseIndex);
+      const diagnostics = JSON.stringify({ furthestSample, final: {
+        position: state.position.toArray(),
+        velocity: state.velocity.toArray(),
+        contactState: state.contactState,
+        contactRampId: state.contactRampId,
+        landingContactTime: state.landingContactTime,
+        resets: state.resets,
+      } });
+      expect(furthestZ, diagnostics).toBeGreaterThan(
+        getSurfCourse(courseIndex).goal.position.z - 8,
+      );
       expect(state.complete).toBe(true);
       expect(state.resets).toBe(0);
       expect(state.elapsed).toBeLessThanOrEqual(20);
+      expect(state.contactState).toBe('ramp');
+      expect(state.contactRampId).toBe(getSurfCourse(courseIndex).goal.rampId);
+      expect(state.landingContactTime).toBeGreaterThanOrEqual(
+        SURF_TUNING.minimumLandingContactTime,
+      );
     },
   );
+
+  it('makes the same steering harness spend progressively longer on each line', () => {
+    const outcomes = SURF_COURSES.map((_course, index) => rideWithKeyboardSteering(index));
+    const elapsed = outcomes.map(({ state }) => state.elapsed);
+    const diagnostics = JSON.stringify(elapsed.map((time) => Number(time.toFixed(2))));
+    expect(elapsed[0], diagnostics).toBeLessThan(elapsed[1]);
+    expect(elapsed[1], diagnostics).toBeLessThan(elapsed[2]);
+    expect(outcomes.every(({ state }) => state.complete && state.resets === 0)).toBe(true);
+  });
 });
