@@ -2,6 +2,11 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createInitialGameState } from '../game/gameReducer';
+import { serializeGameState, STORAGE_KEY } from '../game/persistence';
+import {
+  serializeTutorialProgress,
+  TUTORIAL_STORAGE_KEY,
+} from '../game/tutorialPersistence';
 import { parseDecomposition } from '../math/decomposition';
 import { createGuidedPlan } from '../math/guidedSolving';
 import { App } from './App';
@@ -9,6 +14,10 @@ import { App } from './App';
 describe('central math interaction', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.localStorage.setItem(
+      TUTORIAL_STORAGE_KEY,
+      serializeTutorialProgress('completed'),
+    );
     window.history.replaceState({}, '', '/');
   });
   afterEach(() => {
@@ -20,7 +29,7 @@ describe('central math interaction', () => {
     const user = userEvent.setup();
     const initial = createInitialGameState();
     const problem = initial.problems[0];
-    const view = problem.alternateViews[0];
+    const view = problem.teachingViews[0];
     const operand = view.side === 'left' ? problem.left : problem.right;
     const raw = `${view.left}${view.operator}${view.right}`;
     const parsed = parseDecomposition(raw, operand);
@@ -54,7 +63,7 @@ describe('central math interaction', () => {
     const user = userEvent.setup();
     const initial = createInitialGameState();
     const problem = initial.problems[0];
-    const view = problem.alternateViews.find(
+    const view = problem.teachingViews.find(
       (item) => item.operator === '+' || item.operator === '-',
     );
     if (!view) throw new Error('Daily fixture needs an additive view');
@@ -169,5 +178,70 @@ describe('central math interaction', () => {
     await user.keyboard('{Enter}');
     expect(answer).toHaveValue(String(wrong));
     expect(screen.getByText('Not quite. Your work is still here.')).toBeInTheDocument();
+  });
+});
+
+describe('first-run lesson', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.history.replaceState({}, '', '/');
+  });
+  afterEach(() => {
+    cleanup();
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('launches on the first visit and persists a skip without nagging again', async () => {
+    const user = userEvent.setup();
+    const view = render(<App />);
+
+    expect(screen.getByRole('heading', { name: '24 times 19' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Skip for now' }));
+    expect(screen.getByRole('button', { name: 'Begin' })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(TUTORIAL_STORAGE_KEY)!)).toMatchObject({
+      version: 1,
+      completed: true,
+      outcome: 'dismissed',
+    });
+
+    view.unmount();
+    render(<App />);
+    expect(screen.getByRole('button', { name: 'Begin' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '24 times 19' })).not.toBeInTheDocument();
+  });
+
+  it('does not relaunch a completed current tutorial version', () => {
+    window.localStorage.setItem(
+      TUTORIAL_STORAGE_KEY,
+      serializeTutorialProgress('completed'),
+    );
+    render(<App />);
+    expect(screen.getByRole('button', { name: 'Begin' })).toBeInTheDocument();
+  });
+
+  it('replays from help and returns to the untouched daily checkpoint', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(
+      TUTORIAL_STORAGE_KEY,
+      serializeTutorialProgress('completed'),
+    );
+    const daily = createInitialGameState();
+    const started = { ...daily, phase: 'problem' as const };
+    window.localStorage.setItem(STORAGE_KEY, serializeGameState(started));
+
+    render(<App />);
+    const dailyProblem = started.problems[0];
+    expect(
+      screen.getByRole('heading', { name: `${dailyProblem.left} times ${dailyProblem.right}` }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'How to play' }));
+    await user.click(screen.getByRole('button', { name: 'Replay interactive lesson' }));
+    expect(screen.getByRole('heading', { name: '24 times 19' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Skip for now' }));
+    expect(
+      screen.getByRole('heading', { name: `${dailyProblem.left} times ${dailyProblem.right}` }),
+    ).toBeInTheDocument();
   });
 });

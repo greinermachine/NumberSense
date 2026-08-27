@@ -1,4 +1,4 @@
-import type { AlternateView, ProblemDefinition } from '../data/types';
+import type { ProblemDefinition, TeachingView } from '../data/types';
 import type {
   ExpressionPath,
   GuidedPlan,
@@ -91,12 +91,12 @@ export type GameState =
   | (GameBase & { phase: 'reflection' })
   | (GameBase & {
       phase: 'alternateReveal';
-      alternate: AlternateView;
+      alternate: TeachingView;
       solvedBy: SolveMethod;
     })
   | (GameBase & {
       phase: 'surfTransition';
-      alternate: AlternateView;
+      alternate: TeachingView;
       solvedBy: SolveMethod;
     })
   | (GameBase & { phase: 'surfing'; courseIndex: number })

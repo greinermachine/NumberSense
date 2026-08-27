@@ -12,7 +12,7 @@ function revealState(): Extract<GameState, { phase: 'alternateReveal' }> {
     type: 'START',
   });
   const problem = state.problems[state.stageIndex];
-  const view = problem.alternateViews[0];
+  const view = problem.teachingViews[0];
   state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: view.side });
   state = gameReducer(state, {
     type: 'SUBMIT_DECOMPOSITION',

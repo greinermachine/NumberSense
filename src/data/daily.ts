@@ -1,7 +1,9 @@
 import { PROBLEM_BANK } from './problems';
 import type { ProblemDefinition, ProblemTier } from './types';
 
-export const DAILY_ALGORITHM_VERSION = 1;
+// V2 adds the curated 25 × 12 route and removes an unhelpful 25 = 100 − 75
+// teaching suggestion. The explicit namespace keeps that content change honest.
+export const DAILY_ALGORITHM_VERSION = 2;
 const DAILY_EPOCH = '2026-01-01';
 const TIERS: readonly ProblemTier[] = ['warm', 'explore', 'puzzle'];
 

@@ -1,4 +1,4 @@
-import { selectAlternateView } from '../data/alternateViews';
+import { selectTeachingView } from '../data/teachingViews';
 import { parseDecomposition } from '../math/decomposition';
 import {
   evaluateExpression,
@@ -475,7 +475,7 @@ export function restoreGameState(raw: string | null, date = new Date()): GameSta
 
     if (phase === 'alternateReveal' || phase === 'surfTransition' || phase === 'surfing') {
       const solvedBy = value.solvedBy === 'guided' ? 'guided' : 'direct';
-      const alternate = selectAlternateView(
+      const alternate = selectTeachingView(
         base.problems[base.stageIndex],
         base.discoveries[base.stageIndex],
       );

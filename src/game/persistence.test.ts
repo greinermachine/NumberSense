@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { PROBLEM_BANK } from '../data/problems';
 import { formatExpression } from '../math/expression';
 import { createInitialGameState, gameReducer } from './gameReducer';
 import { restoreGameState, serializeGameState, STORAGE_VERSION } from './persistence';
 import type { GameState } from './types';
 
 const today = new Date('2026-08-22T12:00:00.000Z');
+const recursiveDate = new Date('2026-01-06T12:00:00.000Z');
 
 function stateForProblem(problemId: string): GameState {
-  const initial = createInitialGameState(today);
-  const problem = PROBLEM_BANK.find((item) => item.id === problemId);
-  if (!problem) throw new Error(`Missing fixture ${problemId}`);
-  return { ...initial, problems: [problem, ...initial.problems.slice(1)] };
+  const initial = createInitialGameState(recursiveDate);
+  if (initial.problems[0]?.id !== problemId) {
+    throw new Error(`V2 daily fixture ${recursiveDate.toISOString()} no longer selects ${problemId}`);
+  }
+  return initial;
 }
 
 describe('persistence', () => {
@@ -48,7 +49,7 @@ describe('persistence', () => {
   it('migrates a V1 guided combine checkpoint into an active expression', () => {
     let state = gameReducer(createInitialGameState(today), { type: 'START' });
     const problem = state.problems[0];
-    const view = problem.alternateViews.find(
+    const view = problem.teachingViews.find(
       (item) => item.operator === '+' || item.operator === '-',
     )!;
     state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: view.side });
@@ -83,7 +84,7 @@ describe('persistence', () => {
   it('round-trips an active recursive expression', () => {
     let state = gameReducer(createInitialGameState(today), { type: 'START' });
     const problem = state.problems[0];
-    const view = problem.alternateViews.find(
+    const view = problem.teachingViews.find(
       (item) => item.operator === '+' || item.operator === '-',
     )!;
     state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: view.side });
@@ -110,7 +111,7 @@ describe('persistence', () => {
     state = gameReducer(state, { type: 'SUBMIT_DECOMPOSITION', input: '40-4' });
     expect(state.phase).toBe('guided');
 
-    const restored = restoreGameState(serializeGameState(state), today);
+    const restored = restoreGameState(serializeGameState(state), recursiveDate);
     expect(restored).toMatchObject({ phase: 'guided', stepIndex: 0, answers: [] });
     if (restored?.phase === 'guided') {
       expect(formatExpression(restored.workingExpression)).toBe('40 × 12 − 4 × 12');
@@ -131,7 +132,7 @@ describe('persistence', () => {
     });
     expect(state.phase).toBe('expressionTransforming');
 
-    const restored = restoreGameState(serializeGameState(state), today);
+    const restored = restoreGameState(serializeGameState(state), recursiveDate);
     expect(restored).toMatchObject({
       phase: 'guided',
       stepIndex: 1,
@@ -146,7 +147,7 @@ describe('persistence', () => {
   it('restores a transformation at its clean final-expression checkpoint', () => {
     let state = gameReducer(createInitialGameState(today), { type: 'START' });
     const problem = state.problems[0];
-    const view = problem.alternateViews.find(
+    const view = problem.teachingViews.find(
       (item) => item.operator === '+' || item.operator === '-',
     )!;
     state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: view.side });
@@ -184,7 +185,7 @@ describe('persistence', () => {
   it('restores an accepted final expression at the completed reveal', () => {
     let state = gameReducer(createInitialGameState(today), { type: 'START' });
     const problem = state.problems[0];
-    const view = problem.alternateViews.find(
+    const view = problem.teachingViews.find(
       (item) => item.operator === '+' || item.operator === '-',
     )!;
     state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: view.side });
@@ -229,7 +230,7 @@ describe('persistence', () => {
   it('restores an accepted guided expression at the next exact partial', () => {
     let state = gameReducer(createInitialGameState(today), { type: 'START' });
     const problem = state.problems[0];
-    const view = problem.alternateViews.find(
+    const view = problem.teachingViews.find(
       (item) => item.operator === '+' || item.operator === '-',
     )!;
     state = gameReducer(state, { type: 'OPEN_DECOMPOSITION', side: view.side });

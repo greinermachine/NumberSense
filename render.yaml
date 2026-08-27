@@ -1,0 +1,6 @@
+services:
+  - type: web
+    runtime: static
+    name: number-sense
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist

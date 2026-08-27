@@ -1,13 +1,21 @@
 import { lazy, Suspense, useEffect, useReducer, useState } from 'react';
 import { GameHeader } from '../components/GameHeader';
+import { HelpDialog } from '../components/HelpDialog';
 import { IntroScreen } from '../components/IntroScreen';
 import { ResultsView } from '../components/ResultsView';
 import { PROBLEM_BANK } from '../data/problems';
 import { MathStage } from '../features/math/MathStage';
 import { PresenceReveal } from '../features/spirit/PresenceReveal';
 import { SurfTransition } from '../features/surf/SurfTransition';
+import { TutorialExperience } from '../features/tutorial/TutorialExperience';
 import { createInitialGameState, gameReducer } from '../game/gameReducer';
 import { restoreGameState, serializeGameState, STORAGE_KEY } from '../game/persistence';
+import {
+  serializeTutorialProgress,
+  shouldLaunchTutorial,
+  TUTORIAL_STORAGE_KEY,
+  type TutorialOutcome,
+} from '../game/tutorialPersistence';
 import styles from './App.module.css';
 
 const SurfExperience = lazy(() => import('../features/surf/SurfExperience'));
@@ -38,9 +46,20 @@ function loadInitialState() {
   }
 }
 
+function loadTutorialSession() {
+  if (typeof window === 'undefined' || requestedDevelopmentProblem()) return null;
+  try {
+    return shouldLaunchTutorial(window.localStorage.getItem(TUTORIAL_STORAGE_KEY)) ? 0 : null;
+  } catch {
+    // If storage is blocked, show the lesson once for this in-memory session.
+    return 0;
+  }
+}
+
 export function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, loadInitialState);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [tutorialSession, setTutorialSession] = useState<number | null>(loadTutorialSession);
   const developmentProblem = requestedDevelopmentProblem();
 
   useEffect(() => {
@@ -64,6 +83,42 @@ export function App() {
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [helpOpen]);
+
+  const finishTutorial = (outcome: TutorialOutcome) => {
+    try {
+      window.localStorage.setItem(
+        TUTORIAL_STORAGE_KEY,
+        serializeTutorialProgress(outcome),
+      );
+    } catch {
+      // Completion still applies for this page even when persistence is blocked.
+    }
+    setTutorialSession(null);
+  };
+
+  const replayTutorial = () => {
+    setHelpOpen(false);
+    setTutorialSession((current) => current === null ? 0 : current + 1);
+  };
+
+  if (tutorialSession !== null) {
+    return (
+      <>
+        <TutorialExperience
+          key={tutorialSession}
+          onComplete={() => finishTutorial('completed')}
+          onDismiss={() => finishTutorial('dismissed')}
+          onHelp={() => setHelpOpen(true)}
+        />
+        {helpOpen && (
+          <HelpDialog
+            onClose={() => setHelpOpen(false)}
+            onReplayTutorial={replayTutorial}
+          />
+        )}
+      </>
+    );
+  }
 
   if (state.phase === 'surfing') {
     return (
@@ -124,33 +179,10 @@ export function App() {
       </footer>
 
       {helpOpen && (
-        <div className={styles.helpLayer} role="presentation" onMouseDown={() => setHelpOpen(false)}>
-          <section
-            className={styles.helpPanel}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="help-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <button
-              className={styles.helpClose}
-              type="button"
-              onClick={() => setHelpOpen(false)}
-              aria-label="Close how to play"
-              autoFocus
-            >
-              ×
-            </button>
-            <p className={styles.helpKicker}>How to play</p>
-            <h2 id="help-title">Turn the number over.</h2>
-            <p>Solve directly, or select any active number and type another way to make it. You can do that again whenever the arithmetic gets awkward.</p>
-            <div className={styles.helpExample} aria-label="Example: nineteen equals twenty minus one">
-              <span>19</span><span>=</span><span>20 − 1</span>
-            </div>
-            <p>Follow your idea through, see another perspective, then ride the line it leaves behind.</p>
-            <p className={styles.helpKeys}><kbd>Enter</kbd> submits · <kbd>Esc</kbd> closes · surf with mouse + <kbd>A</kbd>/<kbd>D</kbd></p>
-          </section>
-        </div>
+        <HelpDialog
+          onClose={() => setHelpOpen(false)}
+          onReplayTutorial={replayTutorial}
+        />
       )}
     </main>
   );

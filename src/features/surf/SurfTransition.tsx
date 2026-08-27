@@ -1,15 +1,24 @@
 import { useState } from 'react';
-import { formatAlternateView } from '../../data/alternateViews';
+import { formatTeachingView } from '../../data/teachingViews';
 import type { GameState } from '../../game/types';
 import styles from './SurfTransition.module.css';
 
 type TransitionState = Extract<GameState, { phase: 'surfTransition' }>;
 
-export function SurfTransition({ state, onBegin }: { state: TransitionState; onBegin: () => void }) {
+export function SurfTransition({
+  state,
+  onBegin,
+  forceCalm = false,
+}: {
+  state: TransitionState;
+  onBegin: () => void;
+  forceCalm?: boolean;
+}) {
   const [fallback] = useState(() =>
-    typeof window !== 'undefined' &&
-    (window.matchMedia('(pointer: coarse)').matches ||
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches),
+    forceCalm ||
+    (typeof window !== 'undefined' &&
+      (window.matchMedia('(pointer: coarse)').matches ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches)),
   );
   const [beginning, setBeginning] = useState(false);
   const problem = state.problems[state.stageIndex];
@@ -37,7 +46,7 @@ export function SurfTransition({ state, onBegin }: { state: TransitionState; onB
   return (
     <section className={styles.transition} aria-labelledby="transition-title">
       <div className={styles.thoughtLine}>
-        <p className={styles.expression}>{operand} = {formatAlternateView(state.alternate)}</p>
+        <p className={styles.expression}>{operand} = {formatTeachingView(state.alternate)}</p>
         <div className={styles.line} aria-hidden="true"><span /></div>
       </div>
       <h1 id="transition-title">Take the thought with you.</h1>

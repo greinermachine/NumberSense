@@ -18,6 +18,21 @@
   text-transform: uppercase;
 }
 
+.lessonCue {
+  min-height: 1.5em;
+  margin: calc(-1 * var(--space-3)) 0 var(--space-5);
+  color: var(--color-accent-strong);
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.lessonCue[data-tone='thesis'] {
+  color: var(--color-text);
+  font-style: italic;
+}
+
 .expression {
   display: flex;
   align-items: center;
@@ -73,6 +88,11 @@
 .operand:active { transform: scale(0.98); }
 .operand:disabled { cursor: default; }
 .operand[data-selected='true'] { color: var(--color-accent-strong); border-color: var(--color-accent); }
+.operand[data-prompted='true'] {
+  color: var(--color-accent-strong);
+  border-color: var(--color-accent);
+  animation: lesson-pulse 1.8s ease-in-out infinite;
+}
 
 .plus {
   position: absolute;
@@ -92,6 +112,12 @@
 .operand:focus-visible .plus,
 .operand[data-selected='true'] .plus { opacity: 1; transform: translateY(0); }
 .operand[data-prominent='true'] .plus { opacity: 0.62; transform: translateY(0); }
+.operand[data-prompted='true'] .plus { opacity: 1; transform: translateY(0); }
+
+@keyframes lesson-pulse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-0.08em); }
+}
 
 .decomposition {
   width: min(100%, 24rem);

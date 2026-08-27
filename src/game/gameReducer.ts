@@ -1,4 +1,4 @@
-import { selectAlternateView } from '../data/alternateViews';
+import { selectTeachingView } from '../data/teachingViews';
 import { getDailyNumber, selectDailyProblems, toDailyKey } from '../data/daily';
 import { canonicalDecompositionKey, parseDecomposition } from '../math/decomposition';
 import {
@@ -87,7 +87,7 @@ function completeMath(state: GameBase, solvedBy: SolveMethod): GameState {
   return {
     ...completed,
     phase: 'alternateReveal',
-    alternate: selectAlternateView(problem, state.discoveries[state.stageIndex]),
+    alternate: selectTeachingView(problem, state.discoveries[state.stageIndex]),
     solvedBy,
   };
 }

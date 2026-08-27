@@ -104,6 +104,7 @@
 
 .helpExample {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: center;
   gap: var(--space-4);
@@ -113,6 +114,36 @@
   font-family: var(--font-display);
   font-size: var(--font-size-lg);
 }
+
+.helpThesis {
+  color: var(--color-text) !important;
+  font-family: var(--font-display);
+  font-style: italic;
+  text-align: center;
+}
+
+.helpReplay {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-5);
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.helpAbout {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.helpAbout .helpKicker { margin-bottom: var(--space-2); }
+.helpAbout p:last-child { margin: 0; }
 
 .helpKeys { margin-bottom: 0; font-size: var(--font-size-xs); }
 .helpKeys kbd { color: var(--color-text); font-family: var(--font-body); font-weight: 700; }

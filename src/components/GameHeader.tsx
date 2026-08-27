@@ -1,10 +1,15 @@
 import type { GameState } from '../game/types';
 import styles from './GameHeader.module.css';
 
-type Props = { stageIndex: number; phase: GameState['phase']; onHelp: () => void };
+type Props = {
+  stageIndex: number;
+  phase: GameState['phase'];
+  onHelp: () => void;
+  tutorial?: boolean;
+};
 
-export function GameHeader({ stageIndex, phase, onHelp }: Props) {
-  const showProgress = phase !== 'intro' && phase !== 'results';
+export function GameHeader({ stageIndex, phase, onHelp, tutorial = false }: Props) {
+  const showProgress = !tutorial && phase !== 'intro' && phase !== 'results';
   return (
     <header className={styles.header}>
       <div className={styles.wordmark}>Number Sense</div>

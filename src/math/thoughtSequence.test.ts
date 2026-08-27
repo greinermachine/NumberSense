@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AlternateView, ProblemDefinition } from '../data/types';
+import type { ProblemDefinition, TeachingView } from '../data/types';
 import { parseDecomposition } from './decomposition';
 import { createThoughtSequence } from './thoughtSequence';
 
@@ -9,7 +9,7 @@ const problem = (left: number, right: number): ProblemDefinition => ({
   right,
   tier: 'explore',
   hint: { side: 'right', text: 'Fixture' },
-  alternateViews: [],
+  teachingViews: [],
 });
 
 function playerThought(raw: string, operand: number, side: 'left' | 'right') {
@@ -18,14 +18,14 @@ function playerThought(raw: string, operand: number, side: 'left' | 'right') {
   return { side, expression: parsed.expression };
 }
 
-function expressions(view: AlternateView, item: ProblemDefinition) {
+function expressions(view: TeachingView, item: ProblemDefinition) {
   return createThoughtSequence(item, view).map((step) => step.expression);
 }
 
 describe('createThoughtSequence', () => {
   it('acknowledges the player and unfolds a subtraction on the other operand', () => {
     const item = problem(54, 19);
-    const view: AlternateView = { side: 'right', left: 20, operator: '-', right: 1 };
+    const view: TeachingView = { side: 'right', left: 20, operator: '-', right: 1 };
     const steps = createThoughtSequence(item, view, playerThought('50+4', 54, 'left'));
 
     expect(steps.map((step) => step.expression)).toEqual([
@@ -43,7 +43,7 @@ describe('createThoughtSequence', () => {
 
   it('distributes an addition on the left in the original operand order', () => {
     const item = problem(51, 14);
-    const view: AlternateView = { side: 'left', left: 50, operator: '+', right: 1 };
+    const view: TeachingView = { side: 'left', left: 50, operator: '+', right: 1 };
     expect(expressions(view, item)).toContain('50 × 14 + 1 × 14');
     expect(expressions(view, item)).toContain('700 + 14');
     expect(expressions(view, item)).toContain('51 × 14 = 714');
@@ -51,7 +51,7 @@ describe('createThoughtSequence', () => {
 
   it('regroups a multiplicative decomposition instead of distributing it', () => {
     const item = problem(63, 24);
-    const view: AlternateView = { side: 'left', left: 7, operator: '*', right: 9 };
+    const view: TeachingView = { side: 'left', left: 7, operator: '*', right: 9 };
     expect(expressions(view, item)).toEqual([
       '63 × 24 = 1512',
       '63 × 24',
@@ -65,13 +65,41 @@ describe('createThoughtSequence', () => {
 
   it('regroups a factorization on the right without changing value', () => {
     const item = problem(125, 24);
-    const view: AlternateView = { side: 'right', left: 6, operator: '*', right: 4 };
+    const view: TeachingView = { side: 'right', left: 6, operator: '*', right: 4 };
     expect(expressions(view, item)).toContain('(125 × 6) × 4');
     expect(expressions(view, item)).toContain('750 × 4');
   });
 
+  it('unfolds both curated 25 × 12 teaching routes into friendly arithmetic', () => {
+    const item = problem(25, 12);
+    expect(expressions(
+      { side: 'right', left: 10, operator: '+', right: 2 },
+      item,
+    )).toEqual([
+      '25 × 12 = 300',
+      '25 × 12',
+      '25 × (10 + 2)',
+      '25 × 10 + 25 × 2',
+      '250 + 50',
+      '25 × 12 = 300',
+      '12 = 10 + 2',
+    ]);
+    expect(expressions(
+      { side: 'right', left: 4, operator: '*', right: 3 },
+      item,
+    )).toEqual([
+      '25 × 12 = 300',
+      '25 × 12',
+      '25 × (4 × 3)',
+      '(25 × 4) × 3',
+      '100 × 3',
+      '25 × 12 = 300',
+      '12 = 4 × 3',
+    ]);
+  });
+
   it('marks every displayed transformation as equivalent to its stated target', () => {
-    const fixtures: Array<[ProblemDefinition, AlternateView]> = [
+    const fixtures: Array<[ProblemDefinition, TeachingView]> = [
       [problem(54, 19), { side: 'right', left: 20, operator: '-', right: 1 }],
       [problem(51, 14), { side: 'left', left: 50, operator: '+', right: 1 }],
       [problem(63, 24), { side: 'left', left: 7, operator: '*', right: 9 }],

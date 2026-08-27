@@ -2,11 +2,16 @@ import { useEffect, useState } from 'react';
 import type { SurfCourseDefinition } from './types';
 import styles from './SurfExperience.module.css';
 
+export type CalmGlideCourse = Pick<
+  SurfCourseDefinition,
+  'accent' | 'name' | 'sky' | 'stageLabel'
+>;
+
 export function CalmGlide({
   course,
   onComplete,
 }: {
-  course: SurfCourseDefinition;
+  course: CalmGlideCourse;
   onComplete: () => void;
 }) {
   const [done, setDone] = useState(false);

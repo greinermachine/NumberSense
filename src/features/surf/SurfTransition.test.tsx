@@ -90,4 +90,22 @@ describe('SurfTransition', () => {
     await userEvent.click(screen.getByRole('button', { name: /Surf/ }));
     expect(onBegin).toHaveBeenCalledOnce();
   });
+
+  it('uses the no-fail tutorial handoff without requesting pointer lock', async () => {
+    useFinePointer();
+    const requestPointerLock = vi.fn();
+    Object.defineProperty(document.body, 'requestPointerLock', {
+      configurable: true,
+      value: requestPointerLock,
+    });
+    const onBegin = vi.fn();
+    render(
+      <SurfTransition state={transitionState()} onBegin={onBegin} forceCalm />,
+    );
+
+    expect(screen.getByText('A calm glide will carry you onward.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Surf/ }));
+    expect(requestPointerLock).not.toHaveBeenCalled();
+    expect(onBegin).toHaveBeenCalledOnce();
+  });
 });

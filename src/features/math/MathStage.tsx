@@ -42,7 +42,18 @@ type MathState = Extract<
   }
 >;
 
-type Props = { state: MathState; dispatch: Dispatch<GameAction> };
+export type MathLessonCue = {
+  message: string;
+  targetSide?: 'left' | 'right';
+  targetValue?: number;
+  tone?: 'prompt' | 'thesis';
+};
+
+type Props = {
+  state: MathState;
+  dispatch: Dispatch<GameAction>;
+  lessonCue?: MathLessonCue;
+};
 
 const pathKey = (path: ExpressionPath) => path.join('.');
 
@@ -84,7 +95,7 @@ function transformationAnnotation(kind: ExpressionTransformFrame['kind']) {
   }
 }
 
-export function MathStage({ state, dispatch }: Props) {
+export function MathStage({ state, dispatch, lessonCue }: Props) {
   const problem = state.problems[state.stageIndex];
   const [directAnswer, setDirectAnswer] = useState('');
   const [decomposition, setDecomposition] = useState('');
@@ -235,6 +246,16 @@ export function MathStage({ state, dispatch }: Props) {
       <p className={styles.kicker}>
         {activeExpression || transitionFrame ? 'Keep turning it over' : 'Turn it over'}
       </p>
+      {lessonCue && (
+        <p
+          className={styles.lessonCue}
+          data-tone={lessonCue.tone ?? 'prompt'}
+          role="status"
+          aria-live="polite"
+        >
+          {lessonCue.message}
+        </p>
+      )}
       <h1 id="problem-heading" className={styles.srOnly}>{heading}</h1>
 
       {(state.phase === 'problem' ||
@@ -245,6 +266,7 @@ export function MathStage({ state, dispatch }: Props) {
             value={problem.left}
             side="left"
             selected={selectedSide === 'left'}
+            prompted={lessonCue?.targetSide === 'left'}
             disabled={false}
             onSelect={() => openDecomposition('left')}
           />
@@ -253,6 +275,7 @@ export function MathStage({ state, dispatch }: Props) {
             value={problem.right}
             side="right"
             selected={selectedSide === 'right'}
+            prompted={lessonCue?.targetSide === 'right'}
             disabled={false}
             onSelect={() => openDecomposition('right')}
           />
@@ -271,6 +294,7 @@ export function MathStage({ state, dispatch }: Props) {
             selectedPath={selectedPath}
             onSelect={openExpressionDecomposition}
             prominent={Boolean(assistance)}
+            promptedValue={lessonCue?.targetValue}
           />
         </div>
       )}
@@ -436,16 +460,18 @@ type OperandProps = {
   value: number;
   side: 'left' | 'right';
   selected: boolean;
+  prompted: boolean;
   disabled: boolean;
   onSelect: () => void;
 };
 
-function Operand({ value, side, selected, disabled, onSelect }: OperandProps) {
+function Operand({ value, side, selected, prompted, disabled, onSelect }: OperandProps) {
   return (
     <button
       type="button"
       className={styles.operand}
       data-selected={selected}
+      data-prompted={prompted}
       data-side={side}
       aria-label={`Explore another way to make ${value}`}
       disabled={disabled}
@@ -522,6 +548,7 @@ function ExpressionNodeView({
   selectedPath,
   onSelect,
   prominent,
+  promptedValue,
   parentOperator,
   side,
 }: {
@@ -530,6 +557,7 @@ function ExpressionNodeView({
   selectedPath?: ExpressionPath;
   onSelect: (path: ExpressionPath) => void;
   prominent: boolean;
+  promptedValue?: number;
   parentOperator?: BinaryOperator;
   side?: 'left' | 'right';
 }): ReactNode {
@@ -540,6 +568,7 @@ function ExpressionNodeView({
         className={`${styles.operand} ${styles.expressionNumber}`}
         data-selected={selectedPath ? pathKey(selectedPath) === pathKey(path) : false}
         data-prominent={prominent}
+        data-prompted={promptedValue === expression.value}
         aria-label={`Explore another way to make ${expression.value} in this expression`}
         onClick={() => onSelect(path)}
       >
@@ -560,6 +589,7 @@ function ExpressionNodeView({
         selectedPath={selectedPath}
         onSelect={onSelect}
         prominent={prominent}
+        promptedValue={promptedValue}
         parentOperator={expression.operator}
         side="left"
       />
@@ -572,6 +602,7 @@ function ExpressionNodeView({
         selectedPath={selectedPath}
         onSelect={onSelect}
         prominent={prominent}
+        promptedValue={promptedValue}
         parentOperator={expression.operator}
         side="right"
       />

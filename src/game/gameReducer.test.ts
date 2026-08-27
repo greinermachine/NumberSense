@@ -162,7 +162,7 @@ describe('gameReducer', () => {
       { type: 'OPEN_DECOMPOSITION', side: 'right' },
     );
     const problem = state.problems[0];
-    const view = problem.alternateViews.find((item) => item.side === 'right')!;
+    const view = problem.teachingViews.find((item) => item.side === 'right')!;
     state = gameReducer(state, {
       type: 'SUBMIT_DECOMPOSITION',
       input: `${view.left}${view.operator}${view.right}`,
@@ -179,7 +179,7 @@ describe('gameReducer', () => {
       { type: 'OPEN_DECOMPOSITION', side: 'right' },
     );
     const problem = state.problems[0];
-    const view = problem.alternateViews.find((item) => item.side === 'right')!;
+    const view = problem.teachingViews.find((item) => item.side === 'right')!;
     state = gameReducer(state, {
       type: 'SUBMIT_DECOMPOSITION',
       input: `${view.left}${view.operator}${view.right}`,

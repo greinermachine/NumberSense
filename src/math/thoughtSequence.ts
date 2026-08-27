@@ -1,4 +1,4 @@
-import type { AlternateView, ProblemDefinition } from '../data/types';
+import type { ProblemDefinition, TeachingView } from '../data/types';
 import type { OperandSide, ParsedDecomposition } from './types';
 
 export type ThoughtPartTone = 'quiet' | 'player' | 'focus' | 'operator' | 'answer';
@@ -39,13 +39,13 @@ export type PlayerThought = {
   expression: ParsedDecomposition;
 };
 
-const operatorGlyph = (operator: AlternateView['operator']) =>
+const operatorGlyph = (operator: TeachingView['operator']) =>
   operator === '*' ? '×' : operator === '-' ? '−' : '+';
 
-const grouped = (view: Pick<AlternateView, 'left' | 'operator' | 'right'>) =>
+const grouped = (view: Pick<TeachingView, 'left' | 'operator' | 'right'>) =>
   `(${view.left} ${operatorGlyph(view.operator)} ${view.right})`;
 
-const ungrouped = (view: Pick<AlternateView, 'left' | 'operator' | 'right'>) =>
+const ungrouped = (view: Pick<TeachingView, 'left' | 'operator' | 'right'>) =>
   `${view.left} ${operatorGlyph(view.operator)} ${view.right}`;
 
 const part = (id: string, text: string, tone?: ThoughtPartTone): ThoughtPart => ({
@@ -96,7 +96,7 @@ function originalParts(
 
 function decomposedParts(
   problem: ProblemDefinition,
-  view: Pick<AlternateView, 'side' | 'left' | 'operator' | 'right'>,
+  view: Pick<TeachingView, 'side' | 'left' | 'operator' | 'right'>,
   tone: ThoughtPartTone,
 ): ThoughtPart[] {
   const group = part('decomposition', grouped(view), tone);
@@ -117,7 +117,7 @@ function finalParts(problem: ProblemDefinition, answer: number): ThoughtPart[] {
 
 export function createThoughtSequence(
   problem: ProblemDefinition,
-  alternate: AlternateView,
+  alternate: TeachingView,
   player?: PlayerThought,
 ): ThoughtStep[] {
   const answer = problem.left * problem.right;

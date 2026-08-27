@@ -1,15 +1,16 @@
 import { canonicalDecompositionKey } from '../math/decomposition';
 import type { ParsedDecomposition } from '../math/types';
-import type { AlternateView, ProblemDefinition } from './types';
+import type { ProblemDefinition, TeachingView } from './types';
 
-export function alternateViewKey(view: AlternateView): string {
+export function teachingViewKey(view: TeachingView): string {
   return `${view.side}:${canonicalDecompositionKey(view)}`;
 }
 
-export function selectAlternateView(
+/** Selects only from the problem's authored teaching boundary. */
+export function selectTeachingView(
   problem: ProblemDefinition,
   discoveries: readonly { side: 'left' | 'right'; expression: ParsedDecomposition }[],
-): AlternateView {
+): TeachingView {
   const used = new Set(
     discoveries.map(
       ({ side, expression }) => `${side}:${canonicalDecompositionKey(expression)}`,
@@ -19,24 +20,24 @@ export function selectAlternateView(
   const latestOperator = discoveries.at(-1)?.expression.operator;
   const latestSide = discoveries.at(-1)?.side;
   return (
-    problem.alternateViews.find(
+    problem.teachingViews.find(
       (view) =>
-        !used.has(alternateViewKey(view)) &&
+        !used.has(teachingViewKey(view)) &&
         view.side !== latestSide &&
         view.operator !== latestOperator,
     ) ??
-    problem.alternateViews.find(
-      (view) => !used.has(alternateViewKey(view)) && view.side !== latestSide,
+    problem.teachingViews.find(
+      (view) => !used.has(teachingViewKey(view)) && view.side !== latestSide,
     ) ??
-    problem.alternateViews.find(
-      (view) => !used.has(alternateViewKey(view)) && view.operator !== latestOperator,
+    problem.teachingViews.find(
+      (view) => !used.has(teachingViewKey(view)) && view.operator !== latestOperator,
     ) ??
-    problem.alternateViews.find((view) => !used.has(alternateViewKey(view))) ??
-    problem.alternateViews[0]
+    problem.teachingViews.find((view) => !used.has(teachingViewKey(view))) ??
+    problem.teachingViews[0]
   );
 }
 
-export function formatAlternateView(view: AlternateView): string {
+export function formatTeachingView(view: TeachingView): string {
   const operator = view.operator === '*' ? '×' : view.operator === '-' ? '−' : '+';
   return `${view.left} ${operator} ${view.right}`;
 }
