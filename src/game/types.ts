@@ -94,12 +94,6 @@ export type GameState =
       alternate: TeachingView;
       solvedBy: SolveMethod;
     })
-  | (GameBase & {
-      phase: 'surfTransition';
-      alternate: TeachingView;
-      solvedBy: SolveMethod;
-    })
-  | (GameBase & { phase: 'surfing'; courseIndex: number })
   | (GameBase & { phase: 'results' });
 
 export type GameAction =
@@ -118,7 +112,5 @@ export type GameAction =
   | { type: 'APPLY_EXPRESSION_SUGGESTION' }
   | { type: 'ACCEPT_EXPRESSION_RESCUE' }
   | { type: 'JUST_KNEW' }
-  | { type: 'CONTINUE_TO_SURF' }
-  | { type: 'BEGIN_SURF' }
-  | { type: 'FINISH_SURF' }
+  | { type: 'ADVANCE_AFTER_REVEAL' }
   | { type: 'START_OVER' };

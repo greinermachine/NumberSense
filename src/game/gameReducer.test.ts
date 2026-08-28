@@ -51,14 +51,11 @@ describe('gameReducer', () => {
       state,
       { type: 'SUBMIT_DIRECT', answer: problem.left * problem.right },
       { type: 'JUST_KNEW' },
-      { type: 'CONTINUE_TO_SURF' },
-      { type: 'BEGIN_SURF' },
-      { type: 'FINISH_SURF' },
+      { type: 'ADVANCE_AFTER_REVEAL' },
     );
     expect(state.phase).toBe('problem');
     expect(state.stageIndex).toBe(1);
     expect(state.results[0]).toMatchObject({ solvedBy: 'direct', discoveries: [] });
-    expect('courseIndex' in state).toBe(false);
     expect('alternate' in state).toBe(false);
   });
 
@@ -200,7 +197,7 @@ describe('gameReducer', () => {
 
   it('ignores illegal transitions', () => {
     const state = createInitialGameState(date);
-    expect(gameReducer(state, { type: 'BEGIN_SURF' })).toBe(state);
+    expect(gameReducer(state, { type: 'ADVANCE_AFTER_REVEAL' })).toBe(state);
   });
 
   it('keeps 960 - 48 interactive and carries a recursive 50 - 2 view through', () => {
@@ -438,9 +435,7 @@ describe('gameReducer', () => {
         state,
         { type: 'SUBMIT_DIRECT', answer: problem.left * problem.right },
         { type: 'JUST_KNEW' },
-        { type: 'CONTINUE_TO_SURF' },
-        { type: 'BEGIN_SURF' },
-        { type: 'FINISH_SURF' },
+        { type: 'ADVANCE_AFTER_REVEAL' },
       );
     }
     expect(state.phase).toBe('results');

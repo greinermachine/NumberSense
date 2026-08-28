@@ -272,14 +272,20 @@ describe('persistence', () => {
     expect(restoreGameState(raw, today)).toBeNull();
   });
 
-  it('moves an active surf back to the user-gesture launch state', () => {
+  it.each(['surfTransition', 'surfing'])(
+    'migrates a legacy %s snapshot past the removed reward phase',
+    (legacyPhase) => {
     let state = gameReducer(createInitialGameState(today), { type: 'START' });
     const problem = state.problems[0];
     state = gameReducer(state, { type: 'SUBMIT_DIRECT', answer: problem.left * problem.right });
     state = gameReducer(state, { type: 'JUST_KNEW' });
-    state = gameReducer(state, { type: 'CONTINUE_TO_SURF' });
-    state = gameReducer(state, { type: 'BEGIN_SURF' });
-    expect(state.phase).toBe('surfing');
-    expect(restoreGameState(serializeGameState(state), today)?.phase).toBe('surfTransition');
-  });
+    expect(state.phase).toBe('alternateReveal');
+    const snapshot = JSON.parse(serializeGameState(state)) as Record<string, unknown>;
+    snapshot.phase = legacyPhase;
+    expect(restoreGameState(JSON.stringify(snapshot), today)).toMatchObject({
+      phase: 'problem',
+      stageIndex: 1,
+    });
+    },
+  );
 });

@@ -27,10 +27,12 @@ import type {
 export const STORAGE_KEY = 'number-sense:daily:v1';
 export const STORAGE_VERSION = 3;
 
+type StoredPhase = GameState['phase'] | 'surfTransition' | 'surfing';
+
 type Snapshot = {
   version: 3;
   dateKey: string;
-  phase: GameState['phase'];
+  phase: StoredPhase;
   stageIndex: number;
   hintsUsed: boolean[];
   hintCounts: number[];
@@ -49,7 +51,7 @@ type Snapshot = {
   continuation?: ExpressionContinuation['type'];
 };
 
-const PHASES = new Set<GameState['phase']>([
+const PHASES = new Set<StoredPhase>([
   'intro',
   'problem',
   'decomposing',
@@ -59,6 +61,7 @@ const PHASES = new Set<GameState['phase']>([
   'expressionTransforming',
   'reflection',
   'alternateReveal',
+  // Read-only migration support for snapshots written before surf moved out.
   'surfTransition',
   'surfing',
   'results',
@@ -347,7 +350,7 @@ export function restoreGameState(raw: string | null, date = new Date()): GameSta
       (version !== 1 && version !== 2 && version !== STORAGE_VERSION) ||
       value.dateKey !== initial.dateKey ||
       typeof value.phase !== 'string' ||
-      !PHASES.has(value.phase as GameState['phase']) ||
+      !PHASES.has(value.phase as StoredPhase) ||
       !Number.isInteger(value.stageIndex) ||
       (value.stageIndex as number) < 0 ||
       (value.stageIndex as number) > 2 ||
@@ -380,7 +383,16 @@ export function restoreGameState(raw: string | null, date = new Date()): GameSta
       discoveries,
       results,
     };
-    const phase = value.phase as GameState['phase'];
+    const phase = value.phase as StoredPhase;
+
+    if (phase === 'surfTransition' || phase === 'surfing') {
+      if (base.stageIndex >= base.problems.length - 1) {
+        return results.length === initial.problems.length
+          ? { ...base, phase: 'results' }
+          : null;
+      }
+      return { ...base, phase: 'problem', stageIndex: base.stageIndex + 1 };
+    }
 
     if (phase === 'results' && results.length !== initial.problems.length) return null;
     if (phase === 'intro' || phase === 'problem' || phase === 'reflection' || phase === 'results') {
@@ -473,16 +485,15 @@ export function restoreGameState(raw: string | null, date = new Date()): GameSta
       return { ...base, phase: 'expression', expression };
     }
 
-    if (phase === 'alternateReveal' || phase === 'surfTransition' || phase === 'surfing') {
+    if (phase === 'alternateReveal') {
       const solvedBy = value.solvedBy === 'guided' ? 'guided' : 'direct';
       const alternate = selectTeachingView(
         base.problems[base.stageIndex],
         base.discoveries[base.stageIndex],
       );
-      // Pointer lock cannot survive a refresh, so an active surf resumes at its safe launch state.
       return {
         ...base,
-        phase: phase === 'surfing' ? 'surfTransition' : phase,
+        phase,
         alternate,
         solvedBy,
       };

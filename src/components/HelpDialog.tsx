@@ -40,9 +40,9 @@ export function HelpDialog({
         </button>
         <div className={styles.helpAbout}>
           <p className={styles.helpKicker}>About</p>
-          <p>Three daily problems, three short rides, no account.</p>
+          <p>Three daily problems, three ways to see numbers, no account.</p>
         </div>
-        <p className={styles.helpKeys}><kbd>Enter</kbd> submits · <kbd>Esc</kbd> closes · surf with mouse + <kbd>A</kbd>/<kbd>D</kbd></p>
+        <p className={styles.helpKeys}><kbd>Enter</kbd> submits · <kbd>Esc</kbd> closes an editor or this guide</p>
       </section>
     </div>
   );

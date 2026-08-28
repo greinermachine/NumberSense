@@ -2,13 +2,13 @@
 
 **There’s always another way.**
 
-Number Sense is a lightweight daily game about seeing numbers differently. Each day offers three curated multiplication problems. A player can answer directly or turn either operand into another valid expression, follow that thought through a few calculations, see a contrasting perspective, and ride the resulting line through a short abstract 3D surf stage.
+Number Sense is a lightweight daily game about seeing numbers differently. Each day offers three curated multiplication problems. A player can answer directly or turn either operand into another valid expression, follow that thought through a few calculations, and see a contrasting authored perspective.
 
-On a browser's first visit, a 30–60 second interactive `24 × 19` lesson teaches the core idea inside the real math surface: **Same value. Different shape.** It ends with a no-fail glide before handing off to Today's Three. Completion or **Skip for now** is stored separately from daily progress, and `?` can replay the lesson at any time.
+On a browser’s first visit, a short interactive `24 × 19` lesson teaches the core idea inside the real math surface: **Same value. Different shape.** Completion or **Skip for now** is stored separately from daily progress, and `?` can replay the lesson at any time.
 
-The product is intentionally a game first: no accounts, streak pressure, grades, strategy rankings, classroom dashboard, or backend.
+The surfing reward has been removed from Number Sense. After an alternate thought finishes, the reducer advances directly to the next problem or the daily results. The independent replacement is staged in [`surf-standalone/`](surf-standalone/README.md) and is not imported or built by this app.
 
-## Run it
+## Run Number Sense
 
 Requirements: Node.js 22 (`.node-version` pins the locally verified `22.21.0`) and npm.
 
@@ -17,7 +17,7 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite. The math experience works with keyboard, mouse, touch, and narrow viewports. Interactive surfing is desktop/laptop-first; coarse-pointer and reduced-motion contexts receive a calm automatic glide.
+The math experience works with keyboard, mouse, touch, reduced motion, and narrow viewports.
 
 ## Quality commands
 
@@ -36,42 +36,37 @@ npm run build
 2. Type one binary expression using `+`, `-`, or `*`/`x`.
 3. Work through the generated expression; any awkward partial product can be turned over again.
 4. See an explicitly curated teaching view that avoids repeating yours when possible.
-5. Explicitly launch a 10–20 second surf line.
-6. Repeat for one warm, one exploratory, and one puzzle-like problem.
-7. Share a spoiler-free result.
+5. Continue automatically to the next warm, exploratory, or puzzle-like problem.
+6. Share a spoiler-free result after all three.
 
-Progress, discoveries, hints, and the daily result are saved in versioned local storage. Refreshing during an active surf returns to its launch screen because browser pointer lock cannot safely survive a reload.
+Progress, discoveries, hints, and the daily result are saved in versioned local storage. Legacy same-day snapshots captured in the removed surf phases migrate forward to the next problem instead of discarding completed work.
 
-Player input and game teaching intentionally use different standards. Any decomposition accepted by the safe equivalence parser remains valid player mathematics; the spirit can select only authored `TeachingView` metadata with a documented Number Sense rationale.
+Player input and game teaching intentionally use different standards. Any decomposition accepted by the safe equivalence parser remains valid player mathematics; the presence can select only authored `TeachingView` metadata with a documented Number Sense rationale.
 
 ## Project map
 
 ```text
 src/
   app/                 composition and app lifecycle
-  components/          shell, intro, and results UI
+  components/          shell, intro, help, and results UI
   data/                curated problems and daily selection
   features/math/       central mathematical interaction
   features/spirit/     alternate-view reveal
-  features/surf/       courses, physics, rendering, and fallback
-  features/tutorial/   first-run lesson and its scripted deterministic frames
+  features/tutorial/   first-run lesson and deterministic frames
   game/                reducer, persistence, and share format
   math/                parser and guided-plan domain logic
   styles/              global tokens and baseline styles
+surf-standalone/       independent Vector Surf application
 docs/                  design, architecture, system, and study documents
 ```
-
-The Three.js surf renderer is loaded with `React.lazy`; math is available without downloading or initializing WebGL first. Physics uses refs inside the render loop rather than React state. Production keeps the first-person view free of numeric HUD; a throttled physics/vector overlay is available only with the development query described in the surf-system notes.
 
 ## Read next
 
 - [Learning guide](docs/LEARNING_GUIDE.md) — recommended source reading order and change recipes
 - [Architecture](docs/ARCHITECTURE.md) — boundaries and state transitions
 - [Math system](docs/MATH_SYSTEM.md) — safe grammar, equivalence, and generated work
-- [Surf system](docs/SURF_SYSTEM.md) — vectors, ramp normals, fixed steps, and tuning
 - [Design system](docs/DESIGN_SYSTEM.md) — tokens, typography, motion, and accessibility
 - [Development log](docs/DEVELOPMENT_LOG.md) — implementation milestones, defects, and evidence
-- [Build notes](docs/BUILD_NOTES.md) — the master brief converted into an acceptance matrix
 - [Deployment architecture](docs/DEPLOYMENT.md) — Vercel, Render, routing, Node, and production checks
 - [Live deployment runbook](LIVEDEPLOY.MD) — the shortest path from Git to a public URL
 
@@ -79,6 +74,6 @@ The Three.js surf renderer is loaded with `React.lazy`; math is available withou
 
 The repository is configured for Vercel and a Render Static Site. Both install with `npm ci`, build with `npm run build`, and publish `dist`; neither runs a backend. Start with [LIVEDEPLOY.md](LIVEDEPLOY.MD), then use [the detailed deployment notes](docs/DEPLOYMENT.md) for custom domains, previews, rollback, and troubleshooting.
 
-## V1 boundaries
+## Product boundaries
 
-There is no backend, authentication, cloud sync, user-generated public content, learner model, AI tutor, virtual mobile joystick, general algebra engine, or exact Source-engine surf emulation. These are deliberate product boundaries, not unfinished setup; extension points are described in [Future ideas](docs/FUTURE_IDEAS.md).
+There is no backend, authentication, cloud sync, user-generated public content, learner model, AI tutor, general algebra engine, or embedded movement game. These are deliberate boundaries, not unfinished setup.

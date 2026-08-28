@@ -6,22 +6,11 @@ import { formatExpression, listNumberNodes, numberAtPath } from '../../math/expr
 import type { MathLessonCue } from '../math/MathStage';
 import { MathStage } from '../math/MathStage';
 import { PresenceReveal } from '../spirit/PresenceReveal';
-import { CalmGlide } from '../surf/CalmGlide';
-import { SurfTransition } from '../surf/SurfTransition';
 import {
   createTutorialGameState,
   tutorialReducer,
 } from './tutorialState';
 import styles from './TutorialExperience.module.css';
-
-// Keep onboarding independent of courses.ts: that table constructs Three.js
-// vectors and belongs behind the lazy SurfExperience boundary.
-const TUTORIAL_GLIDE = {
-  accent: '#dce8b1',
-  name: 'The near line',
-  sky: '#e5e4da',
-  stageLabel: 'First glide',
-} as const;
 
 function promptKey(state: GameState) {
   if (state.phase === 'decomposing') {
@@ -157,10 +146,6 @@ export function TutorialExperience({
     return () => window.clearTimeout(timeout);
   }, [state.phase]);
 
-  if (state.phase === 'surfing') {
-    return <CalmGlide course={TUTORIAL_GLIDE} onComplete={onComplete} />;
-  }
-
   const activeExpression = state.phase === 'expression'
     ? formatExpression(state.expression)
     : undefined;
@@ -188,15 +173,7 @@ export function TutorialExperience({
         {state.phase === 'alternateReveal' && (
           <TutorialReveal
             state={state}
-            onContinue={() => dispatch({ type: 'CONTINUE_TO_SURF' })}
-          />
-        )}
-
-        {state.phase === 'surfTransition' && (
-          <SurfTransition
-            state={state}
-            onBegin={() => dispatch({ type: 'BEGIN_SURF' })}
-            forceCalm
+            onContinue={onComplete}
           />
         )}
       </div>

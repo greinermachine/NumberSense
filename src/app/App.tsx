@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { GameHeader } from '../components/GameHeader';
 import { HelpDialog } from '../components/HelpDialog';
 import { IntroScreen } from '../components/IntroScreen';
@@ -6,7 +6,6 @@ import { ResultsView } from '../components/ResultsView';
 import { PROBLEM_BANK } from '../data/problems';
 import { MathStage } from '../features/math/MathStage';
 import { PresenceReveal } from '../features/spirit/PresenceReveal';
-import { SurfTransition } from '../features/surf/SurfTransition';
 import { TutorialExperience } from '../features/tutorial/TutorialExperience';
 import { createInitialGameState, gameReducer } from '../game/gameReducer';
 import { restoreGameState, serializeGameState, STORAGE_KEY } from '../game/persistence';
@@ -17,8 +16,6 @@ import {
   type TutorialOutcome,
 } from '../game/tutorialPersistence';
 import styles from './App.module.css';
-
-const SurfExperience = lazy(() => import('../features/surf/SurfExperience'));
 
 function requestedDevelopmentProblem() {
   if (!import.meta.env.DEV || typeof window === 'undefined') return undefined;
@@ -72,10 +69,6 @@ export function App() {
   }, [developmentProblem, state]);
 
   useEffect(() => {
-    if (state.phase !== 'intro') void import('../features/surf/SurfExperience');
-  }, [state.phase]);
-
-  useEffect(() => {
     if (!helpOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setHelpOpen(false);
@@ -120,17 +113,6 @@ export function App() {
     );
   }
 
-  if (state.phase === 'surfing') {
-    return (
-      <Suspense fallback={<div className={styles.surfLoading}>The line is forming…</div>}>
-        <SurfExperience
-          courseIndex={state.courseIndex}
-          onComplete={() => dispatch({ type: 'FINISH_SURF' })}
-        />
-      </Suspense>
-    );
-  }
-
   return (
     <main className={styles.shell} data-phase={state.phase}>
       <GameHeader
@@ -157,14 +139,7 @@ export function App() {
         {state.phase === 'alternateReveal' && (
           <PresenceReveal
             state={state}
-            onContinue={() => dispatch({ type: 'CONTINUE_TO_SURF' })}
-          />
-        )}
-
-        {state.phase === 'surfTransition' && (
-          <SurfTransition
-            state={state}
-            onBegin={() => dispatch({ type: 'BEGIN_SURF' })}
+            onContinue={() => dispatch({ type: 'ADVANCE_AFTER_REVEAL' })}
           />
         )}
 

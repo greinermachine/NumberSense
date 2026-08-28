@@ -628,23 +628,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'JUST_KNEW':
       return state.phase === 'reflection' ? completeMath(state, 'direct') : state;
 
-    case 'CONTINUE_TO_SURF':
-      return state.phase === 'alternateReveal'
-        ? {
-            ...baseState(state),
-            phase: 'surfTransition',
-            alternate: state.alternate,
-            solvedBy: state.solvedBy,
-          }
-        : state;
-
-    case 'BEGIN_SURF':
-      return state.phase === 'surfTransition'
-        ? { ...baseState(state), phase: 'surfing', courseIndex: state.stageIndex }
-        : state;
-
-    case 'FINISH_SURF':
-      if (state.phase !== 'surfing') return state;
+    case 'ADVANCE_AFTER_REVEAL':
+      if (state.phase !== 'alternateReveal') return state;
       if (state.stageIndex >= state.problems.length - 1) {
         return { ...baseState(state), phase: 'results' };
       }

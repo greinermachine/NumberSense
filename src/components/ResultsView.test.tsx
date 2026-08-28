@@ -17,9 +17,7 @@ function completedState(): Extract<GameState, { phase: 'results' }> {
       answer: problem.left * problem.right,
     });
     state = gameReducer(state, { type: 'JUST_KNEW' });
-    state = gameReducer(state, { type: 'CONTINUE_TO_SURF' });
-    state = gameReducer(state, { type: 'BEGIN_SURF' });
-    state = gameReducer(state, { type: 'FINISH_SURF' });
+    state = gameReducer(state, { type: 'ADVANCE_AFTER_REVEAL' });
   }
 
   if (state.phase !== 'results') throw new Error('Expected a completed game');

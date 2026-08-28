@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe('PresenceReveal', () => {
-  it('advances every deterministic thought automatically before the surf-entry screen', async () => {
+  it('advances every deterministic thought automatically before the next problem', async () => {
     vi.useFakeTimers();
     const state = revealState();
     const onContinue = vi.fn();
