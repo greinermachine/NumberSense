@@ -62,7 +62,7 @@ docs/                  design, architecture, system, and study documents
 
 ## Deploy it
 
-The repository is configured for Vercel and a Render Static Site. Both install with `npm ci`, build with `npm run build`, and publish `dist`; neither runs a backend. Start with [LIVEDEPLOY.md](LIVEDEPLOY.MD), then use [the detailed deployment notes](docs/DEPLOYMENT.md) for custom domains, previews, rollback, and troubleshooting.
+The repository is configured for Vercel and a Render Static Site. Both install with `npm ci`, build with `npm run build`, and publish `dist`; neither runs a backend.
 
 ## Product boundaries
 
