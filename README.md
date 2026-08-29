@@ -60,16 +60,6 @@ surf-standalone/       independent Vector Surf application
 docs/                  design, architecture, system, and study documents
 ```
 
-## Read next
-
-- [Learning guide](docs/LEARNING_GUIDE.md) — recommended source reading order and change recipes
-- [Architecture](docs/ARCHITECTURE.md) — boundaries and state transitions
-- [Math system](docs/MATH_SYSTEM.md) — safe grammar, equivalence, and generated work
-- [Design system](docs/DESIGN_SYSTEM.md) — tokens, typography, motion, and accessibility
-- [Development log](docs/DEVELOPMENT_LOG.md) — implementation milestones, defects, and evidence
-- [Deployment architecture](docs/DEPLOYMENT.md) — Vercel, Render, routing, Node, and production checks
-- [Live deployment runbook](LIVEDEPLOY.MD) — the shortest path from Git to a public URL
-
 ## Deploy it
 
 The repository is configured for Vercel and a Render Static Site. Both install with `npm ci`, build with `npm run build`, and publish `dist`; neither runs a backend. Start with [LIVEDEPLOY.md](LIVEDEPLOY.MD), then use [the detailed deployment notes](docs/DEPLOYMENT.md) for custom domains, previews, rollback, and troubleshooting.
